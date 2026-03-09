@@ -201,8 +201,8 @@ const SimplexNoise = (function() {
 
   // ── Particles ──
   const PARTICLE_COUNT = 2500;
-  const NOISE_SCALE = 0.0025;
-  const SPEED = 1.2;
+  let NOISE_SCALE = 0.0025;
+  let SPEED = 1.2;
   const MOUSE_RADIUS = 150;
   const MOUSE_FORCE = 2.5;
 
@@ -291,6 +291,15 @@ const SimplexNoise = (function() {
   ctx.fillRect(0, 0, W, H);
 
   requestAnimationFrame(draw);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'SPEED': SPEED = e.data.value; break;
+        case 'NOISE_SCALE': NOISE_SCALE = e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

@@ -50,11 +50,11 @@
 
   // Lorenz parameters
   const SIGMA = 10;
-  const RHO = 28;
+  let RHO = 28;
   const BETA = 8 / 3;
   const DT = 0.005;
-  const TRAIL_LENGTH = 2000;
-  const STEPS_PER_FRAME = 4;
+  let TRAIL_LENGTH = 2000;
+  let STEPS_PER_FRAME = 4;
 
   // Warm palette with variations
   const COLORS = [
@@ -217,7 +217,9 @@
     rotationAngle += 0.002;
 
     // Determine scale to fill canvas nicely
-    const scaleFactor = Math.min(w, h) / 140;
+    // ?p=N increases the divisor, shrinking the attractor for embedded contexts
+    const _pad = parseFloat(new URLSearchParams(location.search).get('p')) || 1;
+    const scaleFactor = Math.min(w, h) / (140 * _pad);
 
     const centerX = w / 2;
     const centerY = h / 2;
@@ -252,6 +254,16 @@
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
   animate();
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'STEPS_PER_FRAME': STEPS_PER_FRAME = Math.round(e.data.value); break;
+        case 'TRAIL_LENGTH': TRAIL_LENGTH = Math.round(e.data.value); break;
+        case 'RHO': RHO = e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

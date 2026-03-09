@@ -211,9 +211,9 @@ const SimplexNoise = (function() {
 
   // ── Configuration ──
   const CELL_SIZE = 8;          // Grid cell size in pixels
-  const NUM_CONTOURS = 14;      // Number of contour levels
+  let NUM_CONTOURS = 14;        // Number of contour levels
   const NOISE_SCALE = 0.003;    // Scale of noise field
-  const TIME_SPEED = 0.15;      // How fast the field evolves
+  let TIME_SPEED = 0.15;        // How fast the field evolves
   const LABEL_DENSITY = 0.003;  // Probability of placing elevation label per segment
 
   // ── Elevation labels ──
@@ -415,6 +415,15 @@ const SimplexNoise = (function() {
   }
 
   requestAnimationFrame(draw);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'NUM_CONTOURS': NUM_CONTOURS = Math.round(e.data.value); break;
+        case 'TIME_SPEED': TIME_SPEED = e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

@@ -38,7 +38,7 @@
   let gridA0, gridB0, gridA1, gridB1; // ping-pong buffers
 
   // Gray-Scott parameters (standard stable values)
-  const Da = 0.2097;
+  let Da = 0.2097;
   const Db = 0.105;
   const dt = 1.0;
 
@@ -229,10 +229,10 @@
   // Periodically add new seed points to keep evolution interesting
   let frameCount = 0;
   const SEED_INTERVAL = 800; // frames
+  let stepsPerFrame = 12;
 
   function frame() {
     // Multiple simulation steps per render frame for faster evolution
-    const stepsPerFrame = 12;
     for (let s = 0; s < stepsPerFrame; s++) {
       simulate();
     }
@@ -252,6 +252,15 @@
 
   resize();
   requestAnimationFrame(frame);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'stepsPerFrame': stepsPerFrame = Math.round(e.data.value); break;
+        case 'Da': Da = e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

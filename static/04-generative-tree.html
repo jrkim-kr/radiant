@@ -44,8 +44,8 @@
   // Each branch: { x0, y0, angle, length, thickness, depth, growthProgress (0-1),
   //                growthSpeed, children: [], spawned: false, swayOffset, swayAmp }
 
-  const MAX_DEPTH = 9;
-  const GROWTH_SPEED_BASE = 0.008;
+  let MAX_DEPTH = 9;
+  let GROWTH_SPEED_BASE = 0.008;
   const TRUNK_THICKNESS = 0;  // will be set relative to canvas
   const BRANCH_LENGTH_BASE = 0;  // set on init
 
@@ -104,20 +104,27 @@
     return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
   }
 
+  // ?p=N shrinks tree to avoid clipping in embedded contexts
+  const _pad = parseFloat(new URLSearchParams(location.search).get('p')) || 1;
+
   function createTree() {
     branches = [];
     allBranches = [];
     initTreeCanvas();
 
-    const trunkLen = H * rand(0.22, 0.28);
-    const trunkThick = Math.max(6, W * 0.012);
+    const trunkLen = H * rand(0.18, 0.23) / _pad;
+    const trunkThick = Math.max(6, W * 0.012) / _pad;
 
     // Slight random lean
     const trunkAngle = -Math.PI / 2 + rand(-0.08, 0.08);
 
+    // When padded, center the tree vertically instead of anchoring to bottom
+    const approxTreeH = trunkLen * 3.2;
+    const baseY = _pad > 1 ? (H + approxTreeH) / 2 : H;
+
     const trunk = {
       x0: W / 2 + rand(-W * 0.05, W * 0.05),
-      y0: H,
+      y0: baseY,
       angle: trunkAngle,
       length: trunkLen,
       thickness: trunkThick,
@@ -385,6 +392,15 @@
 
   createTree();
   requestAnimationFrame(frame);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'GROWTH_SPEED_BASE': GROWTH_SPEED_BASE = e.data.value; break;
+        case 'MAX_DEPTH': MAX_DEPTH = Math.round(e.data.value); break;
+      }
+    }
+  });
 })();
 </script>
 </body>

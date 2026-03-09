@@ -58,8 +58,8 @@
 
   // Golden angle in radians
   const GOLDEN_ANGLE = 137.508 * (Math.PI / 180);
-  const MAX_POINTS = 2000;
-  const SPREAD = Math.min(width, height) * 0.0065;
+  let MAX_POINTS = 2000;
+  let SPREAD = Math.min(width, height) * 0.0065;
 
   // Warm palette
   const colors = [
@@ -287,6 +287,15 @@
   }
 
   requestAnimationFrame(draw);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'MAX_POINTS': MAX_POINTS = Math.round(e.data.value); break;
+        case 'SPREAD': SPREAD = Math.min(width, height) * e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

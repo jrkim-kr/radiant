@@ -48,8 +48,8 @@
   resize();
 
   // Configuration
-  const NUM_PENDULUMS = 20;
-  const CYCLE_DURATION = 60; // seconds for full pattern cycle
+  let NUM_PENDULUMS = 20;
+  let CYCLE_DURATION = 60; // seconds for full pattern cycle
   const BASE_OSCILLATIONS = 30; // longest pendulum completes this many in one cycle
   const AMPLITUDE_DEG = 35;
   const AMPLITUDE_RAD = AMPLITUDE_DEG * Math.PI / 180;
@@ -116,8 +116,8 @@
 
   // Normalize display lengths so they look good on screen
   // The shortest pendulum (highest index) should be shortest on screen
-  const maxPhysicalLength = pendulums[0].length;
-  const minPhysicalLength = pendulums[NUM_PENDULUMS - 1].length;
+  let maxPhysicalLength = pendulums[0].length;
+  let minPhysicalLength = pendulums[NUM_PENDULUMS - 1].length;
 
   let startTime = null;
 
@@ -293,6 +293,24 @@
   }
 
   requestAnimationFrame(animate);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      var changed = false;
+      switch (e.data.name) {
+        case 'NUM_PENDULUMS': NUM_PENDULUMS = Math.round(e.data.value); changed = true; break;
+        case 'CYCLE_DURATION': CYCLE_DURATION = e.data.value; changed = true; break;
+      }
+      if (changed) {
+        pendulums.length = 0;
+        for (var i = 0; i < NUM_PENDULUMS; i++) {
+          pendulums.push(new Pendulum(i));
+        }
+        maxPhysicalLength = pendulums[0].length;
+        minPhysicalLength = pendulums[NUM_PENDULUMS - 1].length;
+      }
+    }
+  });
 })();
 </script>
 </body>

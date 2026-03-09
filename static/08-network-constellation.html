@@ -38,6 +38,9 @@
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
+  // ?p=N compacts the graph for embedded contexts
+  const _pad = parseFloat(new URLSearchParams(location.search).get('p')) || 1;
+
   let width, height, cx, cy, dpr;
 
   function resize() {
@@ -139,7 +142,7 @@
   const nodes = nodeDefs.map((def, i) => {
     labelToIndex[def.label] = i;
     const angle = (i / nodeDefs.length) * Math.PI * 2 + Math.random() * 0.5;
-    const dist = 120 + Math.random() * 180;
+    const dist = (120 + Math.random() * 180) / _pad;
     return {
       label: def.label,
       cat: def.cat,
@@ -187,10 +190,10 @@
   });
 
   // Physics constants
-  const REPULSION = 8000;
+  let REPULSION = 8000;
   const SPRING_K = 0.003;
-  const SPRING_REST = 160;
-  const GRAVITY = 0.015;
+  let SPRING_REST = 160 / _pad;
+  const GRAVITY = 0.015 * _pad;
   const DAMPING = 0.92;
   const MAX_SPEED = 3;
 
@@ -246,7 +249,7 @@
       nodes[i].y += nodes[i].vy;
 
       // Soft boundary
-      const margin = 80;
+      const margin = 80 * _pad;
       if (nodes[i].x < margin) nodes[i].vx += 0.5;
       if (nodes[i].x > width - margin) nodes[i].vx -= 0.5;
       if (nodes[i].y < margin) nodes[i].vy += 0.5;
@@ -465,6 +468,15 @@
   });
 
   requestAnimationFrame(draw);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'REPULSION': REPULSION = e.data.value; break;
+        case 'SPRING_REST': SPRING_REST = e.data.value; break;
+      }
+    }
+  });
 })();
 </script>
 </body>

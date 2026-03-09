@@ -26,4 +26,24 @@
 		color: inherit;
 		text-decoration: none;
 	}
+	/* Scrollbar — Webkit */
+	:global(::-webkit-scrollbar) {
+		width: 6px;
+		height: 6px;
+	}
+	:global(::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+	:global(::-webkit-scrollbar-thumb) {
+		background: rgba(200, 149, 108, 0.2);
+		border-radius: 3px;
+	}
+	:global(::-webkit-scrollbar-thumb:hover) {
+		background: rgba(200, 149, 108, 0.35);
+	}
+	/* Scrollbar — Firefox */
+	:global(html) {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(200, 149, 108, 0.2) transparent;
+	}
 </style>
