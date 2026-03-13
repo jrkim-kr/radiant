@@ -1,6 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { getShaderById } from '$lib/shaders';
+import { getShaderById, shaders } from '$lib/shaders';
 import type { PageLoad } from './$types';
+
+export const prerender = true;
 
 export const load: PageLoad = ({ params }) => {
 	const shader = getShaderById(params.id);
@@ -9,3 +11,7 @@ export const load: PageLoad = ({ params }) => {
 	}
 	return { shader };
 };
+
+export function entries() {
+	return shaders.map((s) => ({ id: s.id }));
+}
