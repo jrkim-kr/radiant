@@ -46,6 +46,8 @@
 			for (const p of params) {
 				node.contentWindow?.postMessage({ type: 'param', name: p.name, value: p.value }, '*');
 			}
+			// Reveal after params are applied (next frame)
+			requestAnimationFrame(() => { node.classList.add('ready'); });
 		}
 		node.addEventListener('load', onLoad);
 		return { destroy() { node.removeEventListener('load', onLoad); } };
@@ -178,6 +180,11 @@
 		border: none;
 		display: block;
 		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+	iframe:global(.ready) {
+		opacity: 1;
 	}
 	.overlay {
 		position: absolute;
