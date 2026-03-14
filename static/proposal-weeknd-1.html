@@ -60,7 +60,7 @@ const float PI = 3.14159265359;
 const float TAU = 6.28318530718;
 const float RS = 1.0;        // Schwarzschild radius
 const float ISCO = 3.0;      // Innermost stable circular orbit
-const float DISK_IN = 1.8;   // Inner glow edge (infalling material)
+const float DISK_IN = 2.2;   // Inner glow edge (infalling material)
 const float DISK_OUT = 14.0;  // Outer disk edge
 
 // ──────────────────────────────────────────
@@ -213,10 +213,10 @@ vec4 shadeDisk(vec3 hit, vec3 vel, float time) {
     // Intensity
     float I = tProfile * turb * arm * 6.0;
 
-    // Edge fades — tighter inner edge to reduce gap between shadow and disk
-    float innerFade = smoothstep(DISK_IN * 0.6, DISK_IN * 1.1, r);
-    // Gentle ISCO fade (infalling material still glows inside ISCO)
-    float iscoFade = 0.5 + 0.5 * smoothstep(ISCO * 0.7, ISCO * 1.1, r);
+    // Edge fades
+    float innerFade = smoothstep(DISK_IN * 0.7, DISK_IN * 1.2, r);
+    // ISCO fade — emission ramps up beyond ISCO
+    float iscoFade = 0.35 + 0.65 * smoothstep(ISCO * 0.85, ISCO * 1.2, r);
     float outerFade = 1.0 - smoothstep(DISK_OUT * 0.55, DISK_OUT, r);
     I *= innerFade * iscoFade * outerFade;
 
@@ -311,12 +311,12 @@ void main() {
             vec3 hit = mix(pos, p1, t);
             vec4 dc = shadeDisk(hit, vel, u_time * u_rotationSpeed);
             dc.rgb *= u_diskIntensity;
-            // Photon ring boost: rays that cross the disk 2+ times
-            // passed close to the photon sphere — boost their brightness
+            // Photon ring: rays crossing 2+ times grazed the photon sphere
+            // Boost brightness but keep secondary image thinner/dimmer
             if (diskCrossings >= 1) {
-                float ringBoost = 1.0 + 2.5 * float(diskCrossings);
+                float ringBoost = 1.5; // moderate boost (was 3.5+)
                 dc.rgb *= ringBoost;
-                dc.a = min(dc.a * ringBoost, 0.98);
+                dc.a = min(dc.a * 1.2, 0.95);
             }
             // Alpha-over compositing
             diskAccum.rgb += dc.rgb * dc.a * (1.0 - diskAccum.a);
