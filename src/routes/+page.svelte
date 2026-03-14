@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { shaders, tagLabels, type ShaderTag } from '$lib/shaders';
 	import ShaderCard from '$lib/components/ShaderCard.svelte';
+	import Hero from '$lib/components/Hero.svelte';
+	import Pricing from '$lib/components/Pricing.svelte';
+	import Footer from '$lib/components/Footer.svelte';
 	import { onMount } from 'svelte';
 
 	let activeTags: Set<ShaderTag> = $state(new Set());
@@ -73,43 +76,54 @@
 </script>
 
 <svelte:head>
-	<title>Shaders — Canvas Animations</title>
+	<title>Radiant — Premium Generative Canvas Animations</title>
 </svelte:head>
 
-<header>
-	<div class="header-top">
-		<h1>Shaders</h1>
-		<p>A collection of canvas-based generative animations. Click to explore, configure, and download.</p>
-	</div>
-	<div class="filters">
-		{#each allTags as tag}
-			<button
-				class="filter-btn"
-				class:active={activeTags.has(tag)}
-				onclick={() => toggleTag(tag)}
-			>
-				{tagLabels[tag]}
-			</button>
+<Hero />
+
+<section id="gallery">
+	<header>
+		<div class="header-top">
+			<h1>Collection</h1>
+			<p>60+ canvas-based generative animations. Click to explore, configure, and download.</p>
+		</div>
+		<div class="filters">
+			{#each allTags as tag}
+				<button
+					class="filter-btn"
+					class:active={activeTags.has(tag)}
+					onclick={() => toggleTag(tag)}
+				>
+					{tagLabels[tag]}
+				</button>
+			{/each}
+			{#if activeTags.size > 0}
+				<button class="filter-btn clear-btn" onclick={() => (activeTags = new Set())}>
+					Clear
+				</button>
+			{/if}
+		</div>
+	</header>
+
+	<div class="grid" bind:this={gridEl}>
+		{#each filteredShaders as shader, i (shader.id)}
+			<ShaderCard {shader} active={Math.floor(i / numColumns) === activeRow} />
 		{/each}
-		{#if activeTags.size > 0}
-			<button class="filter-btn clear-btn" onclick={() => (activeTags = new Set())}>
-				Clear
-			</button>
-		{/if}
 	</div>
-</header>
 
-<div class="grid" bind:this={gridEl}>
-	{#each filteredShaders as shader, i (shader.id)}
-		<ShaderCard {shader} active={Math.floor(i / numColumns) === activeRow} />
-	{/each}
-</div>
+	{#if filteredShaders.length === 0}
+		<div class="empty">No shaders match the selected filters.</div>
+	{/if}
+</section>
 
-{#if filteredShaders.length === 0}
-	<div class="empty">No shaders match the selected filters.</div>
-{/if}
+<Pricing />
+
+<Footer />
 
 <style>
+	#gallery {
+		scroll-margin-top: var(--nav-height, 56px);
+	}
 	header {
 		padding: 2rem 3rem;
 		border-bottom: 1px solid rgba(200, 149, 108, 0.15);
