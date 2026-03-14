@@ -163,15 +163,30 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'mirror-ball',
-		file: 'mirror-ball.html',
-		title: 'Mirror Ball',
-		desc: 'Raytraced spinning disco ball with chrome facets casting scattered light reflections.',
+		id: 'kinetic-grid',
+		file: 'kinetic-grid.html',
+		title: 'Kinetic Grid',
+		desc: 'Spring-connected grid mesh with traveling force impulses, tension-colored connections in cyan and magenta.',
 		inspiration: 'Dua Lipa',
-		tags: ['object', 'geometric'],
+		tags: ['fill', 'physics'],
 		params: [
-			{ name: 'ROTATION_SPEED', label: 'Spin Speed', min: 0.1, max: 2.0, step: 0.05, default: 0.5 },
-			{ name: 'BALL_SIZE', label: 'Ball Size', min: 0.08, max: 0.5, step: 0.01, default: 0.22 }
+			{ name: 'IMPULSE_RATE', label: 'Impulse Rate', min: 0.3, max: 3.0, step: 0.1, default: 0.7 },
+			{ name: 'SPRING_TENSION', label: 'Spring Tension', min: 0.2, max: 3.0, step: 0.1, default: 1.0 },
+			{ name: 'IMPULSE_STRENGTH', label: 'Impulse Force', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
+			{ name: 'DAMPING', label: 'Damping', min: 0.95, max: 0.995, step: 0.001, default: 0.978 },
+			{ name: 'RETURN_FORCE', label: 'Return Force', min: 0.001, max: 0.01, step: 0.001, default: 0.003 }
+		]
+	},
+	{
+		id: 'strobe-geometry',
+		file: 'proposal-dua-4.html',
+		title: 'Strobe Geometry',
+		desc: 'Sharp neon geometric shapes flashing in choreographed sequence with cyan-to-magenta afterglow decay.',
+		inspiration: 'Dua Lipa',
+		tags: ['fill', 'geometric'],
+		params: [
+			{ name: 'FLASH_RATE', label: 'Flash Rate', min: 0.3, max: 2.0, step: 0.1, default: 0.7 },
+			{ name: 'GLOW_INTENSITY', label: 'Glow', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
 		]
 	},
 	{
