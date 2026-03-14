@@ -9,8 +9,9 @@
 	let inViewport = $state(false);
 	let posterUrl: string | null = $state(null);
 
-	// Load iframe when active, OR when we need to capture a poster
-	const shouldLoad = $derived(inViewport && (active || !posterUrl));
+	// Only load iframe when in viewport AND active row
+	// Poster capture happens when the row becomes active
+	const shouldLoad = $derived(inViewport && active);
 
 	function observe(node: HTMLElement) {
 		const observer = new IntersectionObserver(
