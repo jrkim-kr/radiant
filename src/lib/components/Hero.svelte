@@ -36,7 +36,7 @@
 		const isMobile = window.innerWidth < 640;
 		const params = [
 			{ name: 'BH_CENTER_X', value: isMobile ? 0.5 : 0.73 },
-			{ name: 'BH_CENTER_Y', value: isMobile ? 0.62 : 0.45 },
+			{ name: 'BH_CENTER_Y', value: isMobile ? 0.38 : 0.45 },
 			{ name: 'BH_SCALE', value: isMobile ? 1.2 : 2.4 },
 			{ name: 'DISK_INTENSITY', value: intensity },
 			{ name: 'ROTATION_SPEED', value: speed },
@@ -344,7 +344,7 @@
 		.content {
 			padding: 0 1.5rem;
 			justify-content: center;
-			padding-top: 30vh;
+			padding-bottom: 30vh;
 			max-width: none;
 			text-align: center;
 			align-items: center;
@@ -360,9 +360,9 @@
 		}
 		.overlay {
 			background: linear-gradient(
-				to top,
-				rgba(10, 10, 10, 0.7) 0%,
-				rgba(10, 10, 10, 0.3) 30%,
+				to bottom,
+				rgba(10, 10, 10, 0.6) 0%,
+				rgba(10, 10, 10, 0.25) 30%,
 				transparent 55%
 			);
 		}
