@@ -311,4 +311,20 @@
 		letter-spacing: 0.03em;
 		width: fit-content;
 	}
+
+	@media (max-width: 640px) {
+		.hero-body {
+			padding: 1rem 1.5rem;
+			flex-direction: column;
+		}
+		.hero-shader {
+			flex: 0 0 50%;
+		}
+		.mock-content h2, .mock-overlay h2 {
+			font-size: 1rem;
+		}
+		.mock-content p, .mock-overlay p {
+			font-size: 0.65rem;
+		}
+	}
 </style>

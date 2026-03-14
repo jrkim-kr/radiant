@@ -41,4 +41,13 @@
 	.links a:hover {
 		color: #c8956c;
 	}
+
+	@media (max-width: 640px) {
+		nav {
+			padding: 0 1rem;
+		}
+		.links {
+			gap: 1rem;
+		}
+	}
 </style>

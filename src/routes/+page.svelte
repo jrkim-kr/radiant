@@ -281,4 +281,26 @@
 		border-radius: 50%;
 		flex-shrink: 0;
 	}
+
+	@media (max-width: 640px) {
+		header {
+			padding: 1.5rem 1rem;
+		}
+		.grid {
+			grid-template-columns: 1fr;
+			gap: 1rem;
+			padding: 1rem;
+		}
+		.floating-controls {
+			gap: 0.25rem;
+			padding: 0.4rem 0.75rem;
+			border-radius: 30px;
+		}
+		.scheme-btn .label {
+			display: none;
+		}
+		.scheme-btn {
+			padding: 0.3rem;
+		}
+	}
 </style>

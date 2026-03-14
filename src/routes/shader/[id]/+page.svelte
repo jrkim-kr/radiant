@@ -430,4 +430,42 @@
 		border-color: rgba(200, 149, 108, 0.5);
 		background: rgba(200, 149, 108, 0.08);
 	}
+
+	@media (max-width: 768px) {
+		.page {
+			grid-template-columns: 1fr;
+			height: auto;
+			overflow: auto;
+		}
+		.page.source-open {
+			grid-template-columns: 1fr;
+		}
+		.main {
+			min-height: 0;
+		}
+		header {
+			padding: calc(var(--nav-height, 56px) + 0.5rem) 1rem 0.5rem;
+		}
+		.preview-area {
+			padding: 0.5rem;
+			min-height: 50vh;
+		}
+		.preview-area > :global(*) {
+			height: auto;
+			aspect-ratio: 16 / 10;
+		}
+		.sidebar {
+			border-left: none;
+			border-top: 1px solid rgba(200, 149, 108, 0.1);
+		}
+		.sidebar-inner {
+			padding: 1rem;
+		}
+		.sidebar-buttons {
+			flex-wrap: wrap;
+		}
+		.actions-section {
+			flex-direction: row;
+		}
+	}
 </style>
