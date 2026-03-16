@@ -597,8 +597,33 @@ export const shaders: Shader[] = [
 		inspiration: 'Chappell Roan',
 		tags: ['object', 'particles'],
 		params: [
+			{ name: 'SHAPE', label: 'Shape', min: 1, max: 4, step: 1, default: 1 },
 			{ name: 'FLICKER_RATE', label: 'Flicker Rate', min: 0.1, max: 1.0, step: 0.05, default: 0.5 },
 			{ name: 'GLOW_SPREAD', label: 'Glow Spread', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'lipstick-smear',
+		file: 'lipstick-smear.html',
+		title: 'Lipstick Smear',
+		desc: 'Viscous fluid simulation in hot pink and crimson — bold pigment streaking and blending with metallic sheen.',
+		inspiration: 'Chappell Roan',
+		tags: ['fill', 'physics', 'organic'],
+		params: [
+			{ name: 'VISCOSITY', label: 'Viscosity', min: 0.1, max: 2.0, step: 0.05, default: 0.8 },
+			{ name: 'COLOR_INTENSITY', label: 'Color Intensity', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'glitter-storm',
+		file: 'glitter-storm.html',
+		title: 'Glitter Storm',
+		desc: 'Dense field of tumbling metallic glitter flakes catching rotating spotlights with specular flash physics.',
+		inspiration: 'Chappell Roan',
+		tags: ['fill', 'particles', 'physics'],
+		params: [
+			{ name: 'SPARKLE_RATE', label: 'Sparkle Rate', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'DENSITY', label: 'Density', min: 0.3, max: 4.0, step: 0.1, default: 1.0 }
 		]
 	},
 	{
