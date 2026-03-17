@@ -9,5 +9,5 @@
 	<title>{data.title} — Radiant</title>
 </svelte:head>
 
-<GalleryHeader title={data.title} description={data.description} count={data.shaders.length} />
+<GalleryHeader title={data.title} description={data.description} count={data.shaders.length} intro={data.intro} />
 <GalleryGrid shaders={data.shaders} />

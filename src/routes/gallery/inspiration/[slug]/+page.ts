@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { getInspirations, filterShaders, getFilterTitle, getFilterDescription } from '$lib/gallery-filters';
+import { inspirationIntros } from '$lib/inspiration-intros';
 import type { PageLoad } from './$types';
 
 export const prerender = true;
@@ -13,7 +14,8 @@ export const load: PageLoad = ({ params }) => {
 	return {
 		shaders: filtered,
 		title: getFilterTitle('inspiration', slug),
-		description: getFilterDescription('inspiration', slug, filtered.length)
+		description: getFilterDescription('inspiration', slug, filtered.length),
+		intro: inspirationIntros[slug] ?? undefined
 	};
 };
 
