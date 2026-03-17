@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gilt Origami</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .label {
+    position: fixed;
+    top: 20px;
+    left: 24px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(200, 149, 108, 0.5);
+    z-index: 10;
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<div class="label">Gilt Origami</div>
+<canvas id="canvas"></canvas>
+<script>
+// ─────────────────────────────────────────────
+// Gilt Origami — Abstract geometric planes continuously folding
+// and unfolding in 3D space, their flat metallic surfaces catching
+// light at different angles. Architectural luxury, precision,
+// geometric beauty.
+// ─────────────────────────────────────────────
+(function () {
+  var canvas = document.getElementById('canvas');
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var urlParams = new URLSearchParams(window.location.search);
+  var pixelScale = parseFloat(urlParams.get('p')) || 1;
+
+  var gl = canvas.getContext('webgl', { alpha: false, antialias: false, preserveDrawingBuffer: false });
+  if (!gl) return;
+
+  var foldSpeedVal = 0.3;
+  var metallicVal = 1.0;
+  var running = true;
+
+  var vertSrc = [
+    'attribute vec2 a_pos;',
+    'void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }'
+  ].join('\n');
+
+  var fragSrc = [
+    'precision highp float;',
+    'uniform float u_time;',
+    'uniform vec2 u_res;',
+    'uniform float u_foldSpeed;',
+    'uniform float u_metallic;',
+    '',
+    '#define PI 3.141592653589793',
+    '#define TAU 6.283185307179586',
+    '',
+    '// ── Hash functions ──',
+    'float hash(vec2 p) {',
+    '  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
+    '}',
+    '',
+    '// ── Value noise ──',
+    'float noise(vec2 p) {',
+    '  vec2 i = floor(p);',
+    '  vec2 f = fract(p);',
+    '  f = f * f * (3.0 - 2.0 * f);',
+    '  float a = hash(i);',
+    '  float b = hash(i + vec2(1.0, 0.0));',
+    '  float c = hash(i + vec2(0.0, 1.0));',
+    '  float d = hash(i + vec2(1.0, 1.0));',
+    '  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
+    '}',
+    '',
+    '// ── 2D rotation matrix ──',
+    'mat2 rot2(float a) {',
+    '  float c = cos(a); float s = sin(a);',
+    '  return mat2(c, -s, s, c);',
+    '}',
+    '',
+    '// ── ACES tone mapping ──',
+    'vec3 ACESFilm(vec3 x) {',
+    '  float a = 2.51;',
+    '  float b = 0.03;',
+    '  float c = 2.43;',
+    '  float d = 0.59;',
+    '  float e = 0.14;',
+    '  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);',
+    '}',
+    '',
+    '// ── Fresnel approximation (Schlick) ──',
+    'float fresnel(float cosTheta, float f0) {',
+    '  return f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);',
+    '}',
+    '',
+    '// ── GGX distribution for metallic specular ──',
+    'float ggxDistribution(float NdotH, float roughness) {',
+    '  float a2 = roughness * roughness;',
+    '  float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;',
+    '  return a2 / (PI * denom * denom + 0.0001);',
+    '}',
+    '',
+    '// ── Compute fold angle for a tile ──',
+    '// Multiple wave sources create interference patterns in fold angles',
+    'float computeFoldAngle(vec2 tileCoord, float t) {',
+    '  float speed = t * u_foldSpeed;',
+    '',
+    '  // Wave source 1: diagonal traveling wave',
+    '  float wave1 = sin(tileCoord.x * 0.8 + tileCoord.y * 0.6 + speed * 1.7) * 0.5;',
+    '',
+    '  // Wave source 2: circular expanding wave from center-left',
+    '  float dist2 = length(tileCoord - vec2(-2.0, 1.0));',
+    '  float wave2 = sin(dist2 * 1.2 - speed * 2.1) * 0.35;',
+    '',
+    '  // Wave source 3: horizontal wave with different frequency',
+    '  float wave3 = sin(tileCoord.x * 1.5 - speed * 1.3 + 1.7) * 0.25;',
+    '',
+    '  // Wave source 4: circular from top-right, slower',
+    '  float dist4 = length(tileCoord - vec2(3.0, -2.0));',
+    '  float wave4 = sin(dist4 * 0.9 - speed * 0.8 + 2.5) * 0.3;',
+    '',
+    '  // Combine waves with interference',
+    '  float combined = wave1 + wave2 + wave3 + wave4;',
+    '',
+    '  // Per-tile random phase offset for organic variation',
+    '  float tileHash = hash(tileCoord * 0.37 + vec2(7.31, 13.17));',
+    '  combined += sin(speed * 0.5 + tileHash * TAU) * 0.15;',
+    '',
+    '  // Scale to fold angle range: -PI/2 to PI/2',
+    '  return combined * PI * 0.5;',
+    '}',
+    '',
+    '// ── Compute tile rotation axis ──',
+    '// Different tiles rotate around different axes for variety',
+    'vec3 getTileAxis(vec2 tileCoord) {',
+    '  float h = hash(tileCoord * 0.73 + vec2(31.7, 59.3));',
+    '  // Quantize to a few axis choices for architectural feel',
+    '  float choice = floor(h * 4.0);',
+    '  if (choice < 1.0) return vec3(1.0, 0.0, 0.0);      // fold around X',
+    '  if (choice < 2.0) return vec3(0.0, 1.0, 0.0);      // fold around Y',
+    '  if (choice < 3.0) return normalize(vec3(1.0, 1.0, 0.0)); // diagonal fold',
+    '  return normalize(vec3(1.0, -1.0, 0.0));             // other diagonal',
+    '}',
+    '',
+    '// ── Rotate a vector around an arbitrary axis (Rodrigues) ──',
+    'vec3 rotateAroundAxis(vec3 v, vec3 axis, float angle) {',
+    '  float c = cos(angle);',
+    '  float s = sin(angle);',
+    '  return v * c + cross(axis, v) * s + axis * dot(axis, v) * (1.0 - c);',
+    '}',
+    '',
+    'void main() {',
+    '  vec2 fragCoord = gl_FragCoord.xy;',
+    '  vec2 uv = fragCoord / u_res;',
+    '  float aspect = u_res.x / u_res.y;',
+    '  vec2 uvCentered = (uv - 0.5) * vec2(aspect, 1.0);',
+    '  float t = u_time;',
+    '',
+    '  // ── Grid parameters ──',
+    '  // Tile size in UV space',
+    '  float tileSize = 0.095;',
+    '  float gap = 0.006;     // gap between tiles',
+    '  float cellSize = tileSize + gap;',
+    '',
+    '  // Slow global rotation of the entire grid for dynamism',
+    '  float globalAngle = t * u_foldSpeed * 0.05;',
+    '  vec2 rotUV = rot2(globalAngle) * uvCentered;',
+    '',
+    '  // Which tile are we in?',
+    '  vec2 tileCoord = floor(rotUV / cellSize);',
+    '  vec2 tileCenter = (tileCoord + 0.5) * cellSize;',
+    '  vec2 localPos = rotUV - tileCenter;',
+    '',
+    '  // ── Check if we are inside the tile face (not in gap) ──',
+    '  float halfTile = tileSize * 0.5;',
+    '  bool inTile = abs(localPos.x) < halfTile && abs(localPos.y) < halfTile;',
+    '',
+    '  // ── Background (visible through gaps and between tiles) ──',
+    '  vec3 bgColor = vec3(0.018, 0.014, 0.012);',
+    '',
+    '  // Subtle warm ambient glow in background',
+    '  float bgGlow = exp(-length(uvCentered) * 1.5) * 0.015;',
+    '  bgColor += vec3(0.04, 0.025, 0.015) * bgGlow;',
+    '',
+    '  if (!inTile) {',
+    '    // ── Ambient occlusion in gaps ──',
+    '    // Darken near tile edges for depth',
+    '    float distToTileEdgeX = abs(localPos.x) - halfTile;',
+    '    float distToTileEdgeY = abs(localPos.y) - halfTile;',
+    '    float gapDist = min(distToTileEdgeX, distToTileEdgeY);',
+    '    // Normalize to gap width',
+    '    float gapNorm = clamp(gapDist / (gap * 0.5), 0.0, 1.0);',
+    '    float ao = 0.3 + 0.7 * gapNorm;',
+    '    bgColor *= ao;',
+    '',
+    '    // Subtle light leak into gaps from bright neighboring tiles',
+    '    float foldAngle = computeFoldAngle(tileCoord, t);',
+    '    float tiltAmount = abs(sin(foldAngle));',
+    '    bgColor += vec3(0.05, 0.035, 0.02) * tiltAmount * 0.15;',
+    '',
+    '    // ── Vignette ──',
+    '    vec2 vigUV = uv - 0.5;',
+    '    float vig = 1.0 - dot(vigUV, vigUV) * 2.0;',
+    '    vig = clamp(vig, 0.0, 1.0);',
+    '    bgColor *= 0.5 + vig * 0.5;',
+    '',
+    '    gl_FragColor = vec4(bgColor, 1.0);',
+    '    return;',
+    '  }',
+    '',
+    '  // ── We are on a tile face ──',
+    '',
+    '  // Get fold parameters for this tile',
+    '  float foldAngle = computeFoldAngle(tileCoord, t);',
+    '  vec3 foldAxis = getTileAxis(tileCoord);',
+    '',
+    '  // ── Compute the tile surface normal ──',
+    '  // Base normal is (0, 0, 1) facing camera',
+    '  // Rotate it around the fold axis by the fold angle',
+    '  vec3 normal = rotateAroundAxis(vec3(0.0, 0.0, 1.0), foldAxis, foldAngle);',
+    '',
+    '  // ── View direction (assume orthographic-ish from z) ──',
+    '  vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0));',
+    '',
+    '  // ── Light setup ──',
+    '  // Primary light: warm key light from upper-right',
+    '  vec3 lightDir1 = normalize(vec3(0.6, 0.8, 0.9));',
+    '  vec3 lightColor1 = vec3(1.0, 0.85, 0.65) * 1.4;',
+    '',
+    '  // Secondary light: cooler fill from lower-left',
+    '  vec3 lightDir2 = normalize(vec3(-0.5, -0.3, 0.7));',
+    '  vec3 lightColor2 = vec3(0.6, 0.55, 0.5) * 0.5;',
+    '',
+    '  // Tertiary: subtle rim/back light for edge definition',
+    '  vec3 lightDir3 = normalize(vec3(0.0, -0.7, 0.3));',
+    '  vec3 lightColor3 = vec3(0.8, 0.65, 0.5) * 0.35;',
+    '',
+    '  // Slowly orbiting accent light',
+    '  float orbitAngle = t * u_foldSpeed * 0.4;',
+    '  vec3 lightDir4 = normalize(vec3(sin(orbitAngle) * 0.7, cos(orbitAngle) * 0.5, 0.6));',
+    '  vec3 lightColor4 = vec3(1.0, 0.75, 0.4) * 0.6;',
+    '',
+    '  // ── Material properties ──',
+    '  // Per-tile color variation for richness',
+    '  float colorHash = hash(tileCoord * 0.51 + vec2(17.3, 41.7));',
+    '',
+    '  // Base metallic color: range from deep bronze to warm gold',
+    '  vec3 baseColor;',
+    '  if (colorHash < 0.3) {',
+    '    // Deep bronze',
+    '    baseColor = vec3(0.28, 0.18, 0.10);',
+    '  } else if (colorHash < 0.6) {',
+    '    // Warm copper-gold',
+    '    baseColor = vec3(0.35, 0.22, 0.12);',
+    '  } else if (colorHash < 0.85) {',
+    '    // Rich gold',
+    '    baseColor = vec3(0.40, 0.28, 0.14);',
+    '  } else {',
+    '    // Pale champagne gold',
+    '    baseColor = vec3(0.42, 0.34, 0.22);',
+    '  }',
+    '',
+    '  float roughness = 0.18 + hash(tileCoord * 0.29 + vec2(3.1, 7.9)) * 0.12;',
+    '  float metalF0 = 0.7; // high F0 for metals',
+    '',
+    '  // ── Compute lighting for each light ──',
+    '  vec3 totalDiffuse = vec3(0.0);',
+    '  vec3 totalSpecular = vec3(0.0);',
+    '',
+    '  // Helper: compute one light contribution',
+    '  // Light 1',
+    '  {',
+    '    float NdotL = max(dot(normal, lightDir1), 0.0);',
+    '    vec3 halfVec = normalize(lightDir1 + viewDir);',
+    '    float NdotH = max(dot(normal, halfVec), 0.0);',
+    '',
+    '    // Diffuse: muted for metals (metals absorb diffuse)',
+    '    totalDiffuse += baseColor * lightColor1 * NdotL * 0.25;',
+    '',
+    '    // Specular: GGX distribution with Fresnel',
+    '    float D = ggxDistribution(NdotH, roughness);',
+    '    float F = fresnel(NdotH, metalF0);',
+    '    // Metallic specular is tinted by base color',
+    '    vec3 specColor = mix(vec3(1.0, 0.95, 0.85), baseColor * 2.0, 0.5);',
+    '    totalSpecular += specColor * lightColor1 * D * F * NdotL * u_metallic;',
+    '  }',
+    '',
+    '  // Light 2',
+    '  {',
+    '    float NdotL = max(dot(normal, lightDir2), 0.0);',
+    '    vec3 halfVec = normalize(lightDir2 + viewDir);',
+    '    float NdotH = max(dot(normal, halfVec), 0.0);',
+    '',
+    '    totalDiffuse += baseColor * lightColor2 * NdotL * 0.25;',
+    '',
+    '    float D = ggxDistribution(NdotH, roughness);',
+    '    float F = fresnel(NdotH, metalF0);',
+    '    vec3 specColor = mix(vec3(1.0, 0.95, 0.85), baseColor * 2.0, 0.5);',
+    '    totalSpecular += specColor * lightColor2 * D * F * NdotL * u_metallic;',
+    '  }',
+    '',
+    '  // Light 3',
+    '  {',
+    '    float NdotL = max(dot(normal, lightDir3), 0.0);',
+    '    vec3 halfVec = normalize(lightDir3 + viewDir);',
+    '    float NdotH = max(dot(normal, halfVec), 0.0);',
+    '',
+    '    totalDiffuse += baseColor * lightColor3 * NdotL * 0.25;',
+    '',
+    '    float D = ggxDistribution(NdotH, roughness);',
+    '    float F = fresnel(NdotH, metalF0);',
+    '    vec3 specColor = mix(vec3(1.0, 0.95, 0.85), baseColor * 2.0, 0.5);',
+    '    totalSpecular += specColor * lightColor3 * D * F * NdotL * u_metallic;',
+    '  }',
+    '',
+    '  // Light 4 (orbiting)',
+    '  {',
+    '    float NdotL = max(dot(normal, lightDir4), 0.0);',
+    '    vec3 halfVec = normalize(lightDir4 + viewDir);',
+    '    float NdotH = max(dot(normal, halfVec), 0.0);',
+    '',
+    '    totalDiffuse += baseColor * lightColor4 * NdotL * 0.25;',
+    '',
+    '    float D = ggxDistribution(NdotH, roughness);',
+    '    float F = fresnel(NdotH, metalF0);',
+    '    vec3 specColor = mix(vec3(1.0, 0.90, 0.65), baseColor * 2.5, 0.4);',
+    '    totalSpecular += specColor * lightColor4 * D * F * NdotL * u_metallic;',
+    '  }',
+    '',
+    '  // ── Ambient ──',
+    '  // Deep warm ambient so shadowed faces are not pure black',
+    '  vec3 ambient = baseColor * vec3(0.06, 0.04, 0.03);',
+    '',
+    '  // ── Tile-to-tile depth variation ──',
+    '  // Angled tiles receive less ambient/diffuse but specular stays bright',
+    '  float facingCamera = max(dot(normal, viewDir), 0.0);',
+    '  float depthShading = 0.4 + 0.6 * facingCamera;',
+    '',
+    '  // ── Combine ──',
+    '  vec3 col = (ambient + totalDiffuse) * depthShading + totalSpecular;',
+    '',
+    '  // ── Edge highlights ──',
+    '  // Tiles catch light at their beveled edges',
+    '  float edgeDist = min(',
+    '    min(halfTile - abs(localPos.x), halfTile - abs(localPos.y)),',
+    '    halfTile',
+    '  );',
+    '  float edgeWidth = 0.0025;',
+    '  float edgeFactor = smoothstep(edgeWidth, 0.0, edgeDist);',
+    '',
+    '  // Edge normal tilts outward — catch light differently',
+    '  vec3 edgeNormal = normal;',
+    '  if (abs(localPos.x) > abs(localPos.y)) {',
+    '    edgeNormal = normalize(normal + vec3(sign(localPos.x) * 0.5, 0.0, 0.0));',
+    '  } else {',
+    '    edgeNormal = normalize(normal + vec3(0.0, sign(localPos.y) * 0.5, 0.0));',
+    '  }',
+    '',
+    '  // Edge specular from primary light',
+    '  float edgeNdotL = max(dot(edgeNormal, lightDir1), 0.0);',
+    '  vec3 edgeHalf = normalize(lightDir1 + viewDir);',
+    '  float edgeNdotH = max(dot(edgeNormal, edgeHalf), 0.0);',
+    '  float edgeSpec = pow(edgeNdotH, 80.0) * u_metallic;',
+    '  vec3 edgeColor = vec3(0.9, 0.75, 0.5) * edgeSpec * 2.0 + baseColor * edgeNdotL * 0.3;',
+    '',
+    '  col = mix(col, edgeColor, edgeFactor * 0.8);',
+    '',
+    '  // ── Subtle brushed metal texture ──',
+    '  // Anisotropic noise aligned with tile to simulate fine surface grain',
+    '  float brushDir = hash(tileCoord * 0.43 + vec2(5.5, 11.1));',
+    '  vec2 brushUV = localPos;',
+    '  if (brushDir > 0.5) brushUV = brushUV.yx;',
+    '  float brushNoise = noise(brushUV * vec2(180.0, 40.0) + tileCoord * 7.0);',
+    '  brushNoise = brushNoise * 0.12 + 0.94;',
+    '  col *= brushNoise;',
+    '',
+    '  // ── Reflected environment (fake) ──',
+    '  // Simulate a subtle warm environment reflection on the metallic surface',
+    '  vec3 reflDir = reflect(-viewDir, normal);',
+    '  float envUp = reflDir.y * 0.5 + 0.5;',
+    '  vec3 envColor = mix(',
+    '    vec3(0.03, 0.02, 0.015),  // ground: dark warm',
+    '    vec3(0.08, 0.06, 0.04),   // sky: slightly brighter warm',
+    '    envUp',
+    '  );',
+    '  float envFresnel = fresnel(facingCamera, 0.3);',
+    '  col += envColor * envFresnel * 0.5;',
+    '',
+    '  // ── Shadow in gaps (AO on tile edges facing gaps) ──',
+    '  float aoEdge = smoothstep(0.0, 0.015, edgeDist);',
+    '  col *= 0.7 + 0.3 * aoEdge;',
+    '',
+    '  // ── Vignette ──',
+    '  vec2 vigUV = uv - 0.5;',
+    '  float vig = 1.0 - dot(vigUV, vigUV) * 2.0;',
+    '  vig = clamp(vig, 0.0, 1.0);',
+    '  col *= 0.5 + vig * 0.5;',
+    '',
+    '  // ── Film grain ──',
+    '  float grain = (fract(sin(dot(fragCoord, vec2(12.9898, 78.233)) + fract(t * 0.1) * 100.0) * 43758.5453) - 0.5) * 0.015;',
+    '  col += grain;',
+    '',
+    '  // ── Tone mapping ──',
+    '  col = ACESFilm(col * 1.2);',
+    '',
+    '  // ── Slight warm gamma ──',
+    '  col = pow(max(col, 0.0), vec3(0.95, 0.97, 1.0));',
+    '',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}',
+  ].join('\n');
+
+  function compile(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertSrc));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragSrc));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error('Program link error:', gl.getProgramInfoLog(prog));
+  }
+  gl.useProgram(prog);
+
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  var aPos = gl.getAttribLocation(prog, 'a_pos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  var uTime = gl.getUniformLocation(prog, 'u_time');
+  var uRes = gl.getUniformLocation(prog, 'u_res');
+  var uFoldSpeed = gl.getUniformLocation(prog, 'u_foldSpeed');
+  var uMetallic = gl.getUniformLocation(prog, 'u_metallic');
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+
+  function resize() {
+    var w = Math.round(canvas.clientWidth * dpr);
+    var h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+
+  function render(now) {
+    if (!running) return;
+    resize();
+    gl.uniform1f(uTime, prefersReduced ? 0.0 : now * 0.001);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uFoldSpeed, foldSpeedVal);
+    gl.uniform1f(uMetallic, metallicVal);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+
+  // ── Pause when offscreen ──
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      running = false;
+    } else {
+      running = true;
+      requestAnimationFrame(render);
+    }
+  });
+
+  // ── PostMessage API for parameter control ──
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'FOLD_SPEED': foldSpeedVal = e.data.value; break;
+        case 'METALLIC': metallicVal = e.data.value; break;
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

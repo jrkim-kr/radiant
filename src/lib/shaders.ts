@@ -328,19 +328,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'smoke-and-gold',
-		file: 'smoke-and-gold.html',
-		title: 'Smoke & Gold',
-		desc: 'Volumetric smoke tendrils with golden light beams cutting through darkness.',
-		inspiration: 'Adele',
-		tags: ['fill', 'noise'],
-		technique: 'webgl',
-		params: [
-			{ name: 'SMOKE_SPEED', label: 'Smoke Speed', min: 0.05, max: 1.0, step: 0.05, default: 0.3 },
-			{ name: 'BEAM_INTENSITY', label: 'Beam Intensity', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'tropical-heat',
 		file: 'tropical-heat.html',
 		title: 'Tropical Heat',
@@ -927,6 +914,32 @@ export const shaders: Shader[] = [
 		params: [
 			{ name: 'DRAW_SPEED', label: 'Draw Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
 			{ name: 'LINE_BRIGHTNESS', label: 'Brightness', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'gilt-origami',
+		file: 'proposal-ana-4.html',
+		title: 'Gilt Origami',
+		desc: 'Abstract metallic planes folding in 3D space with sweeping specular highlights across golden tile faces.',
+		inspiration: 'Ana de Armas',
+		tags: ['fill', 'geometric'],
+		technique: 'webgl',
+		params: [
+			{ name: 'FOLD_SPEED', label: 'Fold Speed', min: 0.1, max: 1.0, step: 0.05, default: 0.3 },
+			{ name: 'METALLIC', label: 'Metallic', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'magnetic-sand',
+		file: 'proposal-ana-5.html',
+		title: 'Magnetic Sand',
+		desc: 'Thousands of particles aligning along invisible magnetic field lines with warm golden glow.',
+		inspiration: 'Ana de Armas',
+		tags: ['fill', 'particles', 'physics'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'FIELD_STRENGTH', label: 'Field Strength', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'PARTICLE_COUNT', label: 'Particle Count', min: 1000, max: 5000, step: 500, default: 3000 }
 		]
 	},
 	{
