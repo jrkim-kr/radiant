@@ -134,7 +134,7 @@
 	<div class="overlay"></div>
 	<div class="content">
 		<h1>Radiant</h1>
-		<p class="tagline">Production-ready generative animations for the web. No dependencies. Just drop in.</p>
+		<p class="tagline">Production-ready shaders & effects for the web. No dependencies. Just drop in.</p>
 		<div class="ctas">
 			<a href="/gallery" class="btn btn-solid">Browse Collection</a>
 			<a href="https://github.com/pbakaus/radiant" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">GitHub</a>

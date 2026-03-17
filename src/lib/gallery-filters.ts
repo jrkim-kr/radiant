@@ -85,7 +85,7 @@ export function getFilterTitle(dimension: FilterDimension, slug: string): string
 }
 
 export function getFilterDescription(dimension: FilterDimension, slug: string, count: number): string {
-	if (dimension === 'all') return `${count} canvas-based generative animations. Click to explore, configure, and download.`;
+	if (dimension === 'all') return `${count} production-ready shaders & effects. Click to explore, configure, and download.`;
 	if (dimension === 'tag') return `${count} shaders tagged "${tagLabels[slug as ShaderTag]}"`;
 	if (dimension === 'technique') return `${count} shaders built with ${techniqueLabels[slug as ShaderTechnique]}`;
 	if (dimension === 'inspiration') {

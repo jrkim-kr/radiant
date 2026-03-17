@@ -8,5 +8,5 @@
 	<title>All Shaders — Radiant</title>
 </svelte:head>
 
-<GalleryHeader title="All Shaders" description="{shaders.length} canvas-based generative animations. Click to explore, configure, and download." count={shaders.length} />
+<GalleryHeader title="All Shaders" description="{shaders.length} production-ready shaders & effects. Click to explore, configure, and download." count={shaders.length} />
 <GalleryGrid shaders={shaders} />

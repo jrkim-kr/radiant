@@ -34,9 +34,9 @@ console.log(`Bundling ${found.length} shaders into radiant-shaders.zip`);
 
 // Generate README
 const shaderList = found.map((s, i) => `${String(i + 1).padStart(2, '0')}. ${s.title} — ${s.file}`).join('\n');
-const readme = `# Radiant — Premium Generative Canvas Animations
+const readme = `# Radiant — Open Source Shaders & Effects
 
-A collection of ${found.length} standalone, self-contained canvas-based generative animations.
+A collection of ${found.length} standalone, self-contained shaders & effects for the web.
 
 ## Usage
 
