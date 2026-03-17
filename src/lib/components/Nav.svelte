@@ -2,7 +2,7 @@
 	<a href="/" class="logo">Radiant</a>
 	<div class="links">
 		<a href="/gallery">Gallery</a>
-		<a href="/#pricing">Pricing</a>
+		<a href="https://github.com/pbakaus/radiant" target="_blank" rel="noopener noreferrer">GitHub</a>
 	</div>
 </nav>
 

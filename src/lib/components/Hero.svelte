@@ -131,7 +131,7 @@
 		<p class="tagline">Production-ready generative animations for the web. No dependencies. Just drop in.</p>
 		<div class="ctas">
 			<a href="/gallery" class="btn btn-solid">Browse Collection</a>
-			<a href="#pricing" class="btn btn-ghost">View Pricing</a>
+			<a href="https://github.com/pbakaus/radiant" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">GitHub</a>
 		</div>
 	</div>
 	<div class="controls">

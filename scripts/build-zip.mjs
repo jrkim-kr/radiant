@@ -55,12 +55,10 @@ ${shaderList}
 
 ## License
 
-These shaders are provided under the PolyForm Noncommercial License 1.0.0
-for personal and non-commercial use. See LICENSE for full terms.
+These shaders are free and open source under the MIT License. See LICENSE for full terms.
+Use them however you like — personal projects, commercial products, client work.
 
-For commercial licensing, contact paul@paulbakaus.com.
-
-Learn more at https://radiantshaders.com
+If you find them useful, consider supporting the project at https://radiantshaders.com
 `;
 
 // Build zip

@@ -1,186 +1,89 @@
-<section id="pricing" class="pricing">
-	<div class="pricing-header">
-		<h2>Pricing</h2>
-		<p>One-time purchase. No subscriptions. Free updates forever.</p>
-	</div>
-	<div class="grid">
-		{#each tiers as tier}
-			<div class="card">
-				<h3>{tier.name}</h3>
-				<div class="price">
-					{#if tier.price === 'Contact'}
-						<span class="amount">Contact us</span>
-					{:else if tier.price === 'Free'}
-						<span class="amount">Free</span>
-					{:else}
-						<span class="amount">{tier.price}</span>
-					{/if}
-				</div>
-				<p class="audience">{tier.audience}</p>
-				<ul>
-					{#each tier.features as feature}
-						<li>{feature}</li>
-					{/each}
-				</ul>
-				<a href={tier.cta.href} class="btn btn-ghost">
-					{tier.cta.label}
-				</a>
-			</div>
-		{/each}
+<section id="support" class="support">
+	<div class="support-content">
+		<div class="support-text">
+			<h2>Open Source</h2>
+			<p>
+				Radiant is free and open source under the MIT license.
+				Use these shaders however you like — personal projects, commercial products, client work.
+			</p>
+			<p class="secondary">
+				If they bring you joy or save you time, consider leaving a tip.
+			</p>
+		</div>
+		<div class="support-actions">
+			<a href="https://github.com/pbakaus/radiant" class="btn btn-solid" target="_blank" rel="noopener noreferrer">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+				</svg>
+				View on GitHub
+			</a>
+			<a href="https://buy.stripe.com/aFa3cwfsEe3G25R6i48Ra03" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+				Leave a tip &rarr;
+			</a>
+		</div>
 	</div>
 </section>
 
-<script lang="ts">
-	const tiers = [
-		{
-			name: 'Personal',
-			price: 'Free',
-			audience: 'Non-commercial use',
-
-			features: [
-				'All 60+ shaders',
-				'Full source code',
-				'Personal & educational use',
-				'Community support'
-			],
-			cta: { label: 'Download Free', href: '/radiant-shaders.zip' }
-		},
-		{
-			name: 'Indie',
-			price: '$149',
-			audience: 'Solo devs, < $1M revenue',
-
-			features: [
-				'Commercial use license',
-				'Unlimited client projects',
-				'All current & future shaders',
-				'Priority email support'
-			],
-			cta: {
-				label: 'Buy Indie License',
-				href: 'mailto:paul@paulbakaus.com?subject=Radiant%20Indie%20License&body=Hi%20Paul%2C%0A%0AI%27d%20like%20to%20purchase%20an%20Indie%20license%20for%20Radiant.%0A%0AThanks!'
-			}
-		},
-		{
-			name: 'Team',
-			price: '$399',
-			audience: 'Up to 5 developers, < $5M revenue',
-
-			features: [
-				'5 developer seats',
-				'Commercial use license',
-				'All current & future shaders',
-				'Priority support'
-			],
-			cta: {
-				label: 'Buy Team License',
-				href: 'mailto:paul@paulbakaus.com?subject=Radiant%20Team%20License&body=Hi%20Paul%2C%0A%0AI%27d%20like%20to%20purchase%20a%20Team%20license%20for%20Radiant.%0A%0ATeam%20size%3A%20%0ACompany%3A%20%0A%0AThanks!'
-			}
-		},
-		{
-			name: 'Enterprise',
-			price: 'Contact',
-			audience: '10+ devs, SaaS, > $5M revenue',
-
-			features: [
-				'Unlimited developer seats',
-				'SaaS & OEM rights',
-				'All current & future shaders',
-				'Dedicated support'
-			],
-			cta: {
-				label: 'Contact Sales',
-				href: 'mailto:paul@paulbakaus.com?subject=Radiant%20Enterprise%20Inquiry&body=Hi%20Paul%2C%0A%0AWe%27re%20interested%20in%20an%20Enterprise%20license%20for%20Radiant.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0AUse%20case%3A%20%0A%0AThanks!'
-			}
-		}
-	];
-</script>
-
 <style>
-	.pricing {
+	.support {
 		padding: 4rem 3rem;
 		scroll-margin-top: var(--nav-height, 56px);
+		border-top: 1px solid rgba(200, 149, 108, 0.1);
 	}
-	.pricing-header {
-		text-align: center;
-		margin-bottom: 3rem;
+	.support-content {
+		max-width: 800px;
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 3rem;
 	}
-	.pricing-header h2 {
+	.support-text h2 {
 		font-size: 1.5rem;
 		font-weight: 300;
 		letter-spacing: 0.05em;
 		color: #c8956c;
 	}
-	.pricing-header p {
-		margin-top: 0.5rem;
-		font-size: 0.85rem;
-		color: rgba(232, 224, 216, 0.5);
-	}
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 1.25rem;
-		max-width: 1100px;
-		margin: 0 auto;
-	}
-	.card {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		padding: 1.75rem 1.5rem;
-		border: 1px solid rgba(200, 149, 108, 0.12);
-		border-radius: 8px;
-		background: rgba(10, 10, 10, 0.5);
-	}
-	h3 {
-		font-size: 1rem;
-		font-weight: 500;
-		color: #e8e0d8;
-	}
-	.price {
+	.support-text p {
 		margin-top: 0.75rem;
+		font-size: 0.9rem;
+		color: rgba(232, 224, 216, 0.6);
+		line-height: 1.6;
+		max-width: 420px;
 	}
-	.amount {
-		font-size: 1.75rem;
-		font-weight: 300;
-		color: #c8956c;
-	}
-	.audience {
-		margin-top: 0.35rem;
-		font-size: 0.75rem;
+	.support-text .secondary {
 		color: rgba(232, 224, 216, 0.4);
+		font-size: 0.85rem;
 	}
-	ul {
-		list-style: none;
-		margin-top: 1.25rem;
+	.support-actions {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		flex: 1;
-	}
-	li {
-		font-size: 0.8rem;
-		color: rgba(232, 224, 216, 0.6);
-		padding-left: 1.1rem;
-		position: relative;
-	}
-	li::before {
-		content: '\2713';
-		position: absolute;
-		left: 0;
-		color: #c8956c;
-		font-size: 0.7rem;
+		gap: 0.75rem;
+		flex-shrink: 0;
 	}
 	.btn {
-		display: block;
-		text-align: center;
-		margin-top: 1.5rem;
-		padding: 0.6rem 1rem;
-		font-size: 0.8rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		padding: 0.7rem 1.5rem;
+		font-size: 0.85rem;
 		font-weight: 500;
 		border-radius: 6px;
 		letter-spacing: 0.02em;
 		transition: background 0.2s, border-color 0.2s;
+		cursor: pointer;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.btn-solid {
+		background: #c8956c;
+		color: #0a0a0a;
+		border: 1px solid #c8956c;
+	}
+	.btn-solid:hover {
+		background: #d4a57c;
+		border-color: #d4a57c;
 	}
 	.btn-ghost {
 		background: transparent;
@@ -192,17 +95,20 @@
 		color: #e8e0d8;
 	}
 
-	@media (max-width: 900px) {
-		.grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-	@media (max-width: 560px) {
-		.grid {
-			grid-template-columns: 1fr;
-		}
-		.pricing {
+	@media (max-width: 640px) {
+		.support {
 			padding: 3rem 1.5rem;
+		}
+		.support-content {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 2rem;
+		}
+		.support-actions {
+			width: 100%;
+		}
+		.btn {
+			width: 100%;
 		}
 	}
 </style>

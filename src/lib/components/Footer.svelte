@@ -3,7 +3,7 @@
 		<div class="wordmark">Radiant</div>
 		<nav class="footer-links">
 			<a href="/gallery">Gallery</a>
-			<a href="#pricing">Pricing</a>
+			<a href="https://github.com/pbakaus/radiant" target="_blank" rel="noopener noreferrer">GitHub</a>
 		</nav>
 		<div class="social">
 			<a href="https://x.com/pbakaus" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)">
@@ -24,8 +24,8 @@
 		<a href="https://paulbakaus.com" target="_blank" rel="noopener noreferrer" class="copyright">
 			&copy; 2025 Paul Bakaus
 		</a>
-		<a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noopener noreferrer" class="license">
-			PolyForm Noncommercial 1.0.0
+		<a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer" class="license">
+			MIT License
 		</a>
 	</div>
 </footer>

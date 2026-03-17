@@ -35,7 +35,7 @@
 </script>
 
 <svelte:head>
-	<title>Radiant — Premium Generative Canvas Animations</title>
+	<title>Radiant — Open Source Generative Canvas Animations</title>
 </svelte:head>
 
 <div bind:this={heroEl}>
