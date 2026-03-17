@@ -164,21 +164,26 @@ Build the top 5 shader ideas (as selected by the ranking agent) as complete, wor
 6. **Design for sharability**: generative *art* that doubles as a *design asset*.
 7. **Performance is critical**: 60fps on normal laptops. If a technique can't hit 60fps, use a different technique — don't just reduce quality.
 
-### Step 4: Visual QA via Browser
+### Step 4: Visual QA via Browser — YOU ARE THE FIRST LINE OF DEFENSE
 
-After building each shader, visually verify it using the Chrome browser automation tools:
+You must iterate on each shader until YOU are satisfied it is production grade. Do not hand off mediocre work to the user. The user should only see shaders you'd be proud to ship.
 
-1. Open each shader's standalone HTML file in Chrome
-2. Take a screenshot and evaluate:
-   - **Is it rendering at all?** (not just a black screen or error)
-   - **Is it visually interesting?** (not just random noise or a static image)
-   - **Is the animation smooth?** (check console for errors)
-   - **Does it match the concept?** (does it evoke what was intended?)
-   - **Is it RICH enough?** Would this actually impress a designer?
-   - **Does it try to look like a real object and fail?** If so, it needs rethinking.
-3. If a shader has issues, fix and re-check. If after 2-3 attempts it still doesn't work, scrap it.
+For each shader, visually verify using the Chrome browser automation tools:
 
-Do NOT skip this step.
+1. Open each shader's standalone HTML file in Chrome (navigate to the file URL or dev server URL)
+2. Take a screenshot and critically evaluate against ALL of these criteria:
+   - **Rendering correctly?** (not black screen, no WebGL errors, no visual glitches)
+   - **Visually stunning?** (not just "working" — genuinely beautiful, would stop someone mid-scroll)
+   - **Animation smooth and dynamic?** (clear motion, not static-looking or jittery; check console for errors)
+   - **Rich and layered?** (multiple visual elements composited, not a single flat effect)
+   - **Matches the concept?** (evokes the intended mood/aesthetic)
+   - **Production grade?** Would a designer genuinely use this on a real website?
+   - **No fake-looking literal objects?** If it looks like a bad simulation, it needs rethinking.
+3. **Iterate until excellent.** Fix issues and re-check. Tweak colors, speeds, layer composition, detail levels. Each shader may need 3-5+ revision cycles. This is expected and normal.
+4. If after sustained effort a shader fundamentally doesn't work as a concept (not just needs tweaking), scrap it and build a replacement from the remaining ideas.
+5. **Check console for WebGL errors and performance warnings.** Fix any issues.
+
+Do NOT skip this step. Do NOT pass shaders to the user that you haven't personally verified look great.
 
 ### Step 5: Register and Present
 

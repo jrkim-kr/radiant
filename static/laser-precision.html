@@ -6,7 +6,7 @@
 <title>Laser Precision</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #2a2a2a; }
   canvas { display: block; width: 100vw; height: 100vh; }
   .label {
     position: fixed;
@@ -16,7 +16,7 @@
     font-size: 11px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: rgba(200, 149, 108, 0.5);
+    color: rgba(90, 75, 60, 0.6);
     z-index: 10;
     pointer-events: none;
     user-select: none;
@@ -135,7 +135,7 @@
   var shapeIndex = 0;
 
   function generateShapeSet() {
-    var scale = minDim * 0.62 / _pad;
+    var scale = minDim * 0.55 / _pad;
     var set = [];
 
     switch (shapeIndex % 7) {
@@ -189,6 +189,7 @@
   var HOLD_TIME = 2.5;
   var FADE_TIME = 1.8;
   var fadeAlpha = 1;
+  var HOT_ZONE = 120; // pixels of hot beam glow near the tip
 
   function Laser(polyline) {
     this.points = polyline;
@@ -264,47 +265,26 @@
   };
 
   // ── Burn scorched trail onto burn canvas ──
+  // Only draw a simple solid groove line here.
+  // The emboss (shadow/highlight) is applied at compositing time in the render loop,
+  // so the shadow follows the full continuous path smoothly with no per-segment artifacts.
   function burnScorch(x1, y1, x2, y2) {
     burnCtx.lineCap = 'round';
 
-    // Dark charred outer edge
+    // Dark groove — incised into the lighter brushed metal surface
     burnCtx.beginPath();
     burnCtx.moveTo(x1, y1);
     burnCtx.lineTo(x2, y2);
-    burnCtx.strokeStyle = 'rgba(60, 30, 10, 0.25)';
-    burnCtx.lineWidth = 14;
-    burnCtx.stroke();
-
-    // Warm ember glow (wider)
-    burnCtx.beginPath();
-    burnCtx.moveTo(x1, y1);
-    burnCtx.lineTo(x2, y2);
-    burnCtx.strokeStyle = 'rgba(180, 80, 20, 0.12)';
-    burnCtx.lineWidth = 10;
-    burnCtx.stroke();
-
-    // Orange-hot inner
-    burnCtx.beginPath();
-    burnCtx.moveTo(x1, y1);
-    burnCtx.lineTo(x2, y2);
-    burnCtx.strokeStyle = 'rgba(220, 120, 40, 0.18)';
+    burnCtx.strokeStyle = 'rgba(15, 12, 10, 0.6)';
     burnCtx.lineWidth = 5;
     burnCtx.stroke();
 
-    // Bright amber core burn
+    // Slightly lighter charred center
     burnCtx.beginPath();
     burnCtx.moveTo(x1, y1);
     burnCtx.lineTo(x2, y2);
-    burnCtx.strokeStyle = 'rgba(255, 180, 80, 0.22)';
-    burnCtx.lineWidth = 2.5;
-    burnCtx.stroke();
-
-    // Faint white-hot center scar
-    burnCtx.beginPath();
-    burnCtx.moveTo(x1, y1);
-    burnCtx.lineTo(x2, y2);
-    burnCtx.strokeStyle = 'rgba(255, 240, 220, 0.15)';
-    burnCtx.lineWidth = 1;
+    burnCtx.strokeStyle = 'rgba(35, 28, 22, 0.4)';
+    burnCtx.lineWidth = 3;
     burnCtx.stroke();
   }
 
@@ -443,95 +423,88 @@
     }
   }
 
-  // ── Draw active laser beam (the bright cutting beam) ──
+  // ── Draw active laser beam — only the HOT ZONE near the tip ──
+  // In real laser engraving, only the area near the laser is hot/glowing.
+  // Behind the tip, the material has already cooled and shows the incised groove.
   function drawActiveBeam(laser) {
-    if (laser.drawnLength <= 0) return;
+    if (laser.drawnLength <= 0 || laser.done) return;
 
     var b = BRIGHTNESS * fadeAlpha;
 
-    // Draw the beam along the drawn portion of the path
+    // Build only the hot zone: the last HOT_ZONE pixels of the drawn path
+    var hotStart = Math.max(0, laser.drawnLength - HOT_ZONE);
+    var hotPath = [];
+    var d = 0;
+
+    for (var i = 0; i < laser.segLengths.length; i++) {
+      var segEnd = d + laser.segLengths[i];
+
+      // Skip segments entirely before the hot zone
+      if (segEnd <= hotStart) { d = segEnd; continue; }
+
+      // Skip segments entirely past the drawn length
+      if (d >= laser.drawnLength) break;
+
+      // Clip segment start to hot zone start
+      var clippedStart = Math.max(d, hotStart);
+      var clippedEnd = Math.min(segEnd, laser.drawnLength);
+
+      var t0 = laser.segLengths[i] > 0 ? (clippedStart - d) / laser.segLengths[i] : 0;
+      var t1 = laser.segLengths[i] > 0 ? (clippedEnd - d) / laser.segLengths[i] : 0;
+
+      var p0 = laser.points[i];
+      var p1 = laser.points[i + 1];
+
+      if (hotPath.length === 0) {
+        hotPath.push({
+          x: p0.x + (p1.x - p0.x) * t0,
+          y: p0.y + (p1.y - p0.y) * t0,
+          dist: clippedStart
+        });
+      }
+      hotPath.push({
+        x: p0.x + (p1.x - p0.x) * t1,
+        y: p0.y + (p1.y - p0.y) * t1,
+        dist: clippedEnd
+      });
+
+      d = segEnd;
+    }
+
+    if (hotPath.length < 2) return;
+
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Build the drawn path
-    var drawnPath = [];
-    var d = 0;
-    drawnPath.push(laser.points[0]);
-    for (var i = 0; i < laser.segLengths.length; i++) {
-      if (d + laser.segLengths[i] >= laser.drawnLength) {
-        var t = laser.segLengths[i] > 0 ? (laser.drawnLength - d) / laser.segLengths[i] : 0;
-        var p0 = laser.points[i];
-        var p1 = laser.points[i + 1];
-        drawnPath.push({ x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t });
-        break;
+    // Draw beam layers with per-point alpha fading from cool→hot along the path
+    var layers = [
+      { color: [200, 60, 20], alpha: 0.06, width: 40 },
+      { color: [220, 120, 40], alpha: 0.12, width: 22 },
+      { color: [255, 160, 60], alpha: 0.2, width: 12 },
+      { color: [255, 220, 160], alpha: 0.4, width: 5 },
+      { color: [255, 250, 240], alpha: 0.7, width: 2.2 },
+      { color: [255, 255, 255], alpha: 0.9, width: 0.8 }
+    ];
+
+    for (var l = 0; l < layers.length; l++) {
+      var layer = layers[l];
+      // Draw each sub-segment with fading alpha
+      for (var j = 1; j < hotPath.length; j++) {
+        var fadeT0 = (hotPath[j - 1].dist - hotStart) / HOT_ZONE; // 0 at cool end, 1 at tip
+        var fadeT1 = (hotPath[j].dist - hotStart) / HOT_ZONE;
+        var segAlpha = ((fadeT0 + fadeT1) / 2); // average fade for this sub-segment
+        segAlpha = segAlpha * segAlpha; // quadratic falloff — hot near tip, fades fast
+        var a = b * layer.alpha * segAlpha;
+        if (a < 0.002) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(hotPath[j - 1].x, hotPath[j - 1].y);
+        ctx.lineTo(hotPath[j].x, hotPath[j].y);
+        ctx.strokeStyle = 'rgba(' + layer.color[0] + ', ' + layer.color[1] + ', ' + layer.color[2] + ', ' + a.toFixed(4) + ')';
+        ctx.lineWidth = layer.width;
+        ctx.stroke();
       }
-      drawnPath.push(laser.points[i + 1]);
-      d += laser.segLengths[i];
     }
-
-    if (drawnPath.length < 2) return;
-
-    // Draw multiple beam layers for depth
-
-    // Layer 1: Very wide faint red/orange ambient heat bloom
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(200, 60, 20, ' + (b * 0.04).toFixed(4) + ')';
-    ctx.lineWidth = 50;
-    ctx.stroke();
-
-    // Layer 2: Wide amber glow
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(220, 120, 40, ' + (b * 0.08).toFixed(4) + ')';
-    ctx.lineWidth = 28;
-    ctx.stroke();
-
-    // Layer 3: Medium orange glow
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(255, 160, 60, ' + (b * 0.15).toFixed(4) + ')';
-    ctx.lineWidth = 14;
-    ctx.stroke();
-
-    // Layer 4: Bright warm core
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(255, 220, 160, ' + (b * 0.35).toFixed(4) + ')';
-    ctx.lineWidth = 6;
-    ctx.stroke();
-
-    // Layer 5: White-hot inner core
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(255, 250, 240, ' + (b * 0.6).toFixed(4) + ')';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    // Layer 6: Intense white center line
-    ctx.beginPath();
-    ctx.moveTo(drawnPath[0].x, drawnPath[0].y);
-    for (var i = 1; i < drawnPath.length; i++) {
-      ctx.lineTo(drawnPath[i].x, drawnPath[i].y);
-    }
-    ctx.strokeStyle = 'rgba(255, 255, 255, ' + (b * 0.85).toFixed(4) + ')';
-    ctx.lineWidth = 1.0;
-    ctx.stroke();
   }
 
   // ── Draw the laser tip — intensely hot burning point ──
@@ -654,18 +627,21 @@
 
   startNewShape();
 
-  // ── Surface texture — subtle metallic surface ──
+  // ── Surface texture — brushed metal grain ──
   function drawSurface() {
-    // Very subtle "brushed metal" grain texture via noise dots
-    // Only draw occasionally to avoid perf issues, and keep very faint
-    if (Math.random() > 0.3) return;
+    // Horizontal brushed-metal grain lines (subtle)
+    if (Math.random() > 0.4) return;
 
-    for (var i = 0; i < 40; i++) {
-      var x = Math.random() * width;
+    for (var i = 0; i < 60; i++) {
       var y = Math.random() * height;
-      var alpha = 0.01 + Math.random() * 0.015;
-      ctx.fillStyle = 'rgba(120, 115, 110, ' + alpha.toFixed(4) + ')';
-      ctx.fillRect(x, y, 1, 1);
+      var x = Math.random() * width;
+      var len = 3 + Math.random() * 12;
+      var bright = Math.random() > 0.5;
+      var alpha = 0.02 + Math.random() * 0.03;
+      ctx.fillStyle = bright
+        ? 'rgba(90, 85, 80, ' + alpha.toFixed(4) + ')'
+        : 'rgba(40, 38, 35, ' + alpha.toFixed(4) + ')';
+      ctx.fillRect(x, y, len, 1);
     }
   }
 
@@ -681,12 +657,13 @@
 
     if (prefersReduced) dt *= 0.15;
 
-    // ── Clear ──
+    // ── Clear — brushed metal surface ──
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#0a0a0a';
+    // Base: warm-tinted medium gray (brushed steel)
+    ctx.fillStyle = '#3d3937';
     ctx.fillRect(0, 0, width, height);
 
-    // ── Subtle surface texture ──
+    // ── Brushed metal grain texture ──
     drawSurface();
 
     // ── Phase management ──
@@ -724,18 +701,40 @@
     updateSparks(dt);
     updateSmoke(dt);
 
-    // ── Draw burn layer (scorched trail) ──
+    // ── Draw burn layer with emboss shadows applied at compositing level ──
+    // This gives smooth continuous shadow along entire groove paths.
+
+    // Brushed metal surface: dark grooves with classic emboss.
+    // Shadow on upper-left (groove wall blocks light) — dark, clearly visible on light surface.
+    // Highlight on lower-right (bottom lip catches light).
+
+    // Pass 1: Dark shadow (upper-left of groove)
     ctx.save();
     ctx.globalAlpha = fadeAlpha;
+    ctx.shadowOffsetX = -2;
+    ctx.shadowOffsetY = -2;
+    ctx.shadowBlur = 3;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
     ctx.drawImage(burnCanvas, 0, 0, width, height);
     ctx.restore();
 
-    // ── Pulsing ember glow on burn trail (makes it look like cooling metal) ──
+    // Pass 2: Bright highlight (lower-right lip catching light)
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha * 0.5;
+    ctx.shadowOffsetX = 2.5;
+    ctx.shadowOffsetY = 2.5;
+    ctx.shadowBlur = 2;
+    ctx.shadowColor = 'rgba(255, 255, 250, 0.45)';
+    ctx.drawImage(burnCanvas, 0, 0, width, height);
+    ctx.restore();
+
+    // Pass 3: Subtle warm glow near recent burns
     if (phase !== 'fading') {
+      var glowBase = phase === 'drawing' ? 0.03 : 0.01;
       ctx.save();
-      ctx.globalAlpha = (0.15 + Math.sin(globalTime * 2) * 0.05) * BRIGHTNESS * fadeAlpha;
+      ctx.globalAlpha = (glowBase + Math.sin(globalTime * 2) * 0.01) * BRIGHTNESS * fadeAlpha;
       ctx.globalCompositeOperation = 'screen';
-      ctx.filter = 'blur(6px)';
+      ctx.filter = 'blur(8px)';
       ctx.drawImage(burnCanvas, 0, 0, width, height);
       ctx.filter = 'none';
       ctx.restore();
@@ -770,12 +769,12 @@
     // ── Draw sparks (on top of everything) ──
     drawSparks();
 
-    // ── Vignette ──
+    // ── Vignette — darken edges of the metal plate ──
     var maxDim = Math.max(width, height);
-    var vig = ctx.createRadialGradient(cx, cy, maxDim * 0.12, cx, cy, maxDim * 0.72);
-    vig.addColorStop(0, 'rgba(10, 10, 10, 0)');
-    vig.addColorStop(0.6, 'rgba(8, 8, 8, 0.15)');
-    vig.addColorStop(1, 'rgba(5, 5, 5, 0.55)');
+    var vig = ctx.createRadialGradient(cx, cy, maxDim * 0.15, cx, cy, maxDim * 0.72);
+    vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vig.addColorStop(0.5, 'rgba(0, 0, 0, 0.1)');
+    vig.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, width, height);
 
