@@ -737,19 +737,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'lace-reaction',
-		file: 'proposal-anne-2.html',
-		title: 'Lace Reaction',
-		desc: 'Reaction-diffusion system producing living lace filigree patterns in warm ivory on charcoal.',
-		inspiration: 'Anne Hathaway',
-		tags: ['fill', 'organic'],
-		technique: 'webgl',
-		params: [
-			{ name: 'PATTERN_SPEED', label: 'Pattern Speed', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
-			{ name: 'LACE_DENSITY', label: 'Lace Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'morning-fog',
 		file: 'morning-fog.html',
 		title: 'Morning Fog',
