@@ -987,19 +987,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'wildfire',
-		file: 'wildfire.html',
-		title: 'Wildfire',
-		desc: 'Cellular automata fire propagation across terrain with wind influence.',
-		inspiration: 'Jennifer Lawrence',
-		tags: ['fill', 'physics', 'organic'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'SPREAD_SPEED', label: 'Spread Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'WIND_STRENGTH', label: 'Wind Strength', min: 0.0, max: 1.0, step: 0.05, default: 0.5 }
-		]
-	},
-	{
 		id: 'vinyl-grooves',
 		file: 'vinyl-grooves.html',
 		title: 'Vinyl Grooves',
