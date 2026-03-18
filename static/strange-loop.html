@@ -117,23 +117,17 @@ float sdSegment(vec3 p, vec3 a, vec3 b) {
   return length(p - (a + ab * t));
 }
 
-// Parameter along segment [0,1]
-float segT(vec3 p, vec3 a, vec3 b) {
-  vec3 ab = b - a;
-  return clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
-}
-
 // ─────────────────────────────────────────────
 // Triangle geometry
 // ─────────────────────────────────────────────
-const float TRI_SIDE = 2.2;
-const float BEAM_R = 0.2;
-const float Y_OFF = 0.28;
+const float TRI_SIDE = 2.0;
+const float BEAM_R = 0.16;
+const float Y_OFF = 0.22;
 
-const float TRI_H = 1.9052559; // TRI_SIDE * sqrt(3)/2
-const float HALF_SIDE = 1.1;
-const float V0_Z = 1.2701706;  // TRI_H * 2/3
-const float V12_Z = -0.6350853; // -TRI_H * 1/3
+const float TRI_H = 1.7320508; // TRI_SIDE * sqrt(3)/2
+const float HALF_SIDE = 1.0;
+const float V0_Z = 1.1547005;  // TRI_H * 2/3
+const float V12_Z = -0.5773502; // -TRI_H * 1/3
 
 // ─────────────────────────────────────────────
 // Scene rotation
@@ -173,23 +167,31 @@ vec2 penroseSDF(vec3 p) {
   float d1 = sdSegment(p, b1a, b1b) - BEAM_R;
   float d2 = sdSegment(p, b2a, b2b) - BEAM_R;
 
-  // Corner join spheres
-  float cR = BEAM_R * 1.5;
-  float cv0 = length(p - v0) - cR;
-  float cv1 = length(p - v1) - cR;
-  float cv2 = length(p - v2) - cR;
+  // Corner join pieces: capsules connecting the Y-offset gap at each vertex
+  // These bridge the gap between the end of one beam (-Y) and start of the next (+Y)
+  float c0 = sdSegment(p, v1 + yD, v1 + yU) - BEAM_R; // corner at v1
+  float c1 = sdSegment(p, v2 + yD, v2 + yU) - BEAM_R; // corner at v2
+  float c2 = sdSegment(p, v0 + yD, v0 + yU) - BEAM_R; // corner at v0
 
+  // Determine closest beam for ID
   float dMin = d0;
   float id = 0.0;
   if (d1 < dMin) { dMin = d1; id = 1.0; }
   if (d2 < dMin) { dMin = d2; id = 2.0; }
+  if (c0 < dMin) { dMin = c0; id = 0.5; }
+  if (c1 < dMin) { dMin = c1; id = 1.5; }
+  if (c2 < dMin) { dMin = c2; id = 2.5; }
 
+  // Smooth blend everything together
   float k = 0.08;
-  dMin = smin(dMin, cv0, k);
-  dMin = smin(dMin, cv1, k);
-  dMin = smin(dMin, cv2, k);
+  float dAll = d0;
+  dAll = smin(dAll, d1, k);
+  dAll = smin(dAll, d2, k);
+  dAll = smin(dAll, c0, k);
+  dAll = smin(dAll, c1, k);
+  dAll = smin(dAll, c2, k);
 
-  return vec2(dMin, id);
+  return vec2(dAll, id);
 }
 
 vec2 sceneSDF(vec3 p, float time) {
@@ -254,18 +256,24 @@ float flowGlow(vec3 rp, float time) {
   float glow = 0.0;
   float flowT = time * u_flowSpeed;
 
-  for (float n = 0.0; n < 12.0; n += 1.0) {
-    float phase = fract(flowT * 0.18 + n / 12.0);
+  for (float n = 0.0; n < 10.0; n += 1.0) {
+    float phase = fract(flowT * 0.15 + n / 10.0);
     vec3 pp = pathPos(phase);
     float dist = length(rp - pp);
 
-    // Sharp bright core + wider halo
-    float core = exp(-dist * dist * 1200.0) * 2.5;
-    float halo = exp(-dist * dist * 60.0) * 0.5;
+    // Sharp bright core + medium halo + wide soft glow
+    float core = exp(-dist * dist * 1500.0) * 3.5;
+    float halo = exp(-dist * dist * 80.0) * 0.7;
+    float soft = exp(-dist * dist * 12.0) * 0.12;
 
-    // Slight pulsing per particle
-    float pulse = 0.6 + 0.4 * sin(n * 3.17 + flowT * 2.0);
-    glow += (core + halo) * pulse;
+    // Trailing wake
+    float trailPhase = fract(flowT * 0.15 + n / 10.0 - 0.015);
+    vec3 tp = pathPos(trailPhase);
+    float tDist = length(rp - tp);
+    float trail = exp(-tDist * tDist * 50.0) * 0.35;
+
+    float pulse = 0.65 + 0.35 * sin(n * 3.17 + flowT * 2.0);
+    glow += (core + halo + soft + trail) * pulse;
   }
   return glow;
 }
@@ -292,8 +300,8 @@ void main() {
   float t = u_time;
 
   // Camera
-  vec3 ro = vec3(0.0, 0.0, 5.8);
-  vec3 rd = normalize(vec3(uv, -2.0));
+  vec3 ro = vec3(0.0, 0.0, 5.0);
+  vec3 rd = normalize(vec3(uv, -2.2));
 
   // ── Background ──
   float bgR = length(uv);
@@ -329,12 +337,14 @@ void main() {
     vec3 rp = sceneRot(p, t);
 
     // ── Surface material: dark charcoal to blue-grey ──
-    vec3 baseColor = vec3(0.105, 0.105, 0.145);
+    vec3 baseColor = vec3(0.105, 0.105, 0.14);
     // Per-beam hue shift
-    baseColor += vec3(0.008, 0.004, -0.008) * beamId;
-    // Subtle surface detail
-    float tex = noise3(rp * 15.0) * 0.012;
-    baseColor += tex;
+    baseColor += vec3(0.006, 0.003, -0.006) * floor(beamId);
+    // Layered surface texture: fine grain + broad variation
+    float tex1 = noise3(rp * 18.0) * 0.015;
+    float tex2 = noise3(rp * 6.0 + 100.0) * 0.02;
+    float tex3 = noise3(rp * 45.0) * 0.006; // fine micro-grain
+    baseColor += tex1 + tex2 * 0.5 + tex3;
 
     // ── Lighting ──
     // Key: warm from upper right
@@ -347,8 +357,8 @@ void main() {
     vec3 L2 = normalize(vec3(-0.5, -0.3, 0.6));
     float diff2 = max(dot(n, L2), 0.0);
 
-    // Rim: teal from behind
-    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 3.5);
+    // Rim: teal from behind — steeper falloff for sharper rim
+    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 2.8);
 
     // Top fill for 3D read
     vec3 L3 = normalize(vec3(0.0, 1.0, 0.2));
@@ -357,26 +367,41 @@ void main() {
     // Assemble
     vec3 ambient = vec3(0.045, 0.045, 0.065);
     col = baseColor * ambient;
-    col += baseColor * vec3(0.85, 0.70, 0.50) * diff1 * 1.0;
-    col += baseColor * vec3(0.30, 0.40, 0.60) * diff2 * 0.5;
-    col += baseColor * vec3(0.25, 0.30, 0.35) * diff3 * 0.4;
-    col += vec3(0.50, 0.42, 0.30) * spec1 * 0.4;
-    col += vec3(0.25, 0.50, 0.55) * fresnel * 0.35;
+    col += baseColor * vec3(0.90, 0.72, 0.50) * diff1 * 1.2;
+    col += baseColor * vec3(0.30, 0.42, 0.62) * diff2 * 0.6;
+    col += baseColor * vec3(0.28, 0.32, 0.38) * diff3 * 0.45;
+    col += vec3(0.55, 0.45, 0.32) * spec1 * 0.5;
+    col += vec3(0.22, 0.58, 0.65) * fresnel * 0.6;
 
     // ── Edge highlights ──
-    // Enhanced edge detection: bright lines where surfaces meet
-    // Use the curvature estimate from normal variation
-    float edgeFactor = fresnel;
-    col += vec3(0.35, 0.50, 0.70) * edgeFactor * 0.15;
+    // Fresnel rim glow: teal and amber on opposing edges
+    float edgeTeal = pow(fresnel, 1.8);
+    float edgeAmber = pow(fresnel, 2.5);
+    // Teal edge light (facing away from camera)
+    col += vec3(0.15, 0.65, 0.72) * edgeTeal * 0.55;
+    // Warm amber counter-edge, weighted by top-facing normals
+    float topBias = max(dot(n, vec3(0.0, 1.0, 0.0)), 0.0);
+    col += vec3(0.80, 0.50, 0.22) * edgeAmber * topBias * 0.45;
+    // Sharp geometric edge detection via normal discontinuity
+    vec2 eN = vec2(0.003, 0.0);
+    vec3 nDx = calcNormal(p + eN.xyy, t);
+    vec3 nDy = calcNormal(p + eN.yxy, t);
+    float curvature = length(n - nDx) + length(n - nDy);
+    float edgeLine = smoothstep(0.15, 0.6, curvature);
+    col += vec3(0.20, 0.55, 0.60) * edgeLine * 0.35;
 
     // ── Flow particles illuminating surface ──
     float flow = flowGlow(rp, t);
     vec3 flowCol = mix(
-      vec3(0.80, 0.60, 0.40),
-      vec3(1.0, 0.95, 0.85),
+      vec3(0.85, 0.55, 0.30),
+      vec3(1.0, 0.92, 0.75),
       clamp(flow * 0.5, 0.0, 1.0)
     );
-    col += flowCol * flow * 0.18;
+    col += flowCol * flow * 0.6;
+    // Particles also add diffuse light to surface
+    col += baseColor * flowCol * flow * 0.35;
+    // Hot white core bloom on direct illumination
+    col += vec3(1.0, 0.97, 0.90) * pow(flow, 2.0) * 0.3;
 
     // ── AO ──
     float ao = calcAO(p, n, t);
@@ -388,34 +413,34 @@ void main() {
 
   // ── Proximity glow for near-misses ──
   {
-    float prox = exp(-minDist * 4.0);
-    col += vec3(0.06, 0.04, 0.10) * prox * 0.3;
+    float prox = exp(-minDist * 5.0);
+    col += vec3(0.04, 0.06, 0.08) * prox * 0.25;
   }
 
   // ── Volumetric flow (lighter: fewer samples, only near structure) ──
   {
     mat3 sRot = getSceneRot(t);
-    float near = max(totalDist - 3.0, 0.5);
-    float far = didHit ? totalDist - 0.05 : min(totalDist + 3.0, 12.0);
+    float near = max(totalDist - 3.0, 0.2);
+    float far = didHit ? totalDist + 0.8 : min(totalDist + 5.0, 12.0);
     if (far > near) {
       float flowAccum = 0.0;
-      float stepSz = (far - near) / 16.0;
-      for (int i = 0; i < 16; i++) {
+      float stepSz = (far - near) / 20.0;
+      for (int i = 0; i < 20; i++) {
         float sd = near + (float(i) + 0.5) * stepSz;
         vec3 sp = sRot * (ro + rd * sd);
         float fg = flowGlow(sp, t);
-        flowAccum += fg * stepSz * 0.08;
+        flowAccum += fg * stepSz * 0.14;
       }
-      vec3 flowCol = vec3(0.80, 0.60, 0.42);
-      col += flowCol * flowAccum;
-      col += flowCol * flowAccum * flowAccum * 2.0;
+      vec3 flowCol = vec3(0.90, 0.58, 0.32);
+      col += flowCol * flowAccum * 2.0;
+      col += vec3(1.0, 0.85, 0.65) * flowAccum * flowAccum * 5.0;
     }
   }
 
   // ── Ambient structure glow (soft light around the object) ──
   if (!didHit && minDist < 2.0) {
-    float structGlow = exp(-minDist * minDist * 1.5) * 0.06;
-    col += vec3(0.20, 0.15, 0.30) * structGlow;
+    float structGlow = exp(-minDist * minDist * 1.8) * 0.05;
+    col += vec3(0.10, 0.16, 0.20) * structGlow;
   }
 
   // ── Post-processing ──
@@ -423,7 +448,7 @@ void main() {
   col *= max(vig, 0.0);
 
   // Tone map
-  col *= 1.5;
+  col *= 1.6;
   col = col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14);
 
   // Slight shadow color push

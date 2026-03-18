@@ -1248,19 +1248,6 @@ export const shaders: Shader[] = [
 			{ name: 'WAVE_SPEED', label: 'Wave Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.5 },
 			{ name: 'PARTICLE_DENSITY', label: 'Particle Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
 		]
-	},
-	{
-		id: 'chaotic-pendulum',
-		file: 'chaotic-pendulum.html',
-		title: 'Chaotic Pendulum',
-		desc: 'Double pendulum traces accumulating into beautiful velocity-colored chaos curves on a dark canvas.',
-		inspiration: 'Benedict Cumberbatch',
-		tags: ['object', 'physics'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'TRACE_FADE', label: 'Trace Fade', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
-			{ name: 'ENERGY', label: 'Energy', min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
-		]
 	}
 ];
 

@@ -93,6 +93,7 @@ There is a natural bias toward certain overused techniques. Be aware and activel
 - Simple metaballs (we have metamorphosis, neon-drip)
 - Basic particle systems
 - Raymarched spheres
+- "Obsidian" / dark reflective surface concepts (strong AI bias toward these — actively avoid)
 
 **UNDERUSED — actively seek these out:**
 - Physics simulations (spring systems, fluid dynamics, electromagnetic)
