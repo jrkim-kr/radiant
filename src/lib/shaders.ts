@@ -106,18 +106,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'chaotic-pendulum',
-		file: 'chaotic-pendulum.html',
-		title: 'Chaotic Pendulum',
-		desc: 'Double pendulum with RK4 physics, tracing deterministic chaos colored by velocity.',
-		tags: ['object', 'physics'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'TRACE_FADE', label: 'Trace Fade', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
-			{ name: 'ENERGY', label: 'Energy', min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'phyllotaxis',
 		file: 'phyllotaxis.html',
 		title: 'Phyllotaxis Spiral',
