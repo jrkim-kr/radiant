@@ -148,11 +148,11 @@
       targetDist = PW * (0.3 + Math.random() * 0.25);
       curveAmt = (Math.random() - 0.5) * 0.008;
     } else {
-      // Bold — wider, slower, shorter
-      maxW = 22 + Math.random() * 25;
-      lifespan = 2.0 + Math.random() * 2.5;
-      targetDist = PW * (0.15 + Math.random() * 0.2);
-      curveAmt = (Math.random() - 0.5) * 0.012;
+      // Bold — wider, slower, dramatic sweep
+      maxW = 30 + Math.random() * 35;
+      lifespan = 2.5 + Math.random() * 2.0;
+      targetDist = PW * (0.2 + Math.random() * 0.2);
+      curveAmt = (Math.random() - 0.5) * 0.006;
     }
     var pixPerFrame = targetDist / (lifespan * 60);
 
@@ -186,13 +186,14 @@
 
       var t = age / b.life; // 0..1 normalized life
 
-      // Steering
+      // Steering — gentler, with curve that fades at exit to prevent tight hooks
       var n1 = noise.noise2D(b.x * 0.0003 + b.noff, b.y * 0.0003 + time * 0.06);
       var n2 = noise2.noise2D(b.x * 0.0007 + b.noff + 50, b.y * 0.0007 + time * 0.04);
-      b.angle += (n1 * 0.015 + n2 * 0.01 + b.curve) * fps60dt * STROKE_SPEED;
+      var curveFade = t > 0.7 ? (1 - t) / 0.3 : 1.0; // curve decays at exit
+      b.angle += (n1 * 0.009 + n2 * 0.006 + b.curve * curveFade) * fps60dt * STROKE_SPEED;
 
-      // Speed envelope: very quick start, gentle end
-      var sEnv = t < 0.03 ? t / 0.03 : (t > 0.9 ? (1 - t) / 0.1 : 1.0);
+      // Speed envelope: quick start, very gentle end for graceful taper
+      var sEnv = t < 0.03 ? t / 0.03 : (t > 0.85 ? (1 - t) / 0.15 : 1.0);
       var sNoise = noise.noise2D(time * 0.3 + b.noff, b.id * 5) * 0.3 + 0.85;
       var spd = b.speed * sEnv * sNoise * fps60dt * STROKE_SPEED;
 
