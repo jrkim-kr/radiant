@@ -28,7 +28,7 @@
 <canvas id="canvas"></canvas>
 <script>
 // ─────────────────────────────────────────────
-// 18 · Celestial Drift — Graceful orbital celestial bodies with luminous trails
+// 18 · Celestial Drift — Canvas 2D particle trails with Keplerian orbits
 // ─────────────────────────────────────────────
 (function () {
   var canvas = document.getElementById('canvas');
@@ -37,357 +37,483 @@
   var urlParams = new URLSearchParams(window.location.search);
   var pixelScale = parseFloat(urlParams.get('p')) || 1;
 
-  var gl = canvas.getContext('webgl', { alpha: true, antialias: false, preserveDrawingBuffer: false });
-  if (!gl) return;
+  var ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
-  var vertSrc = [
-    'attribute vec2 a_pos;',
-    'void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }'
-  ].join('\n');
+  var TAU = Math.PI * 2;
+  var NUM_BODIES = 7;
 
-  var fragSrc = [
-    'precision highp float;',
-    'uniform float u_time;',
-    'uniform vec2 u_res;',
-    'uniform float u_trailDensity;',
-    'uniform float u_orbitSpeed;',
-    '',
-    '#define PI 3.14159265359',
-    '#define TAU 6.28318530718',
-    '#define NUM_BODIES 7',
-    '#define TRAIL_STEPS 48',
-    '// NUM_BG_STARS removed — grid-based starfield is O(1)',
-    '',
-    '// ── Hash functions ──',
-    'float hash(vec2 p) {',
-    '  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
-    '}',
-    '',
-    'float hash1(float n) {',
-    '  return fract(sin(n) * 43758.5453123);',
-    '}',
-    '',
-    '// ── Smooth value noise ──',
-    'float noise(vec2 p) {',
-    '  vec2 i = floor(p);',
-    '  vec2 f = fract(p);',
-    '  f = f * f * (3.0 - 2.0 * f);',
-    '  float a = hash(i);',
-    '  float b = hash(i + vec2(1.0, 0.0));',
-    '  float c = hash(i + vec2(0.0, 1.0));',
-    '  float d = hash(i + vec2(1.0, 1.0));',
-    '  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
-    '}',
-    '',
-    '// ── Body color palette: warm amber/gold tones ──',
-    'vec3 bodyColor(int idx) {',
-    '  float fi = float(idx);',
-    '  // Each body gets a unique warm hue',
-    '  float h = 0.06 + hash1(fi * 7.31 + 1.0) * 0.08;  // hue in 0.06-0.14 (amber range)',
-    '  float s = 0.5 + hash1(fi * 3.17 + 2.0) * 0.35;',
-    '  float v = 0.75 + hash1(fi * 5.91 + 3.0) * 0.25;',
-    '  // HSV to RGB',
-    '  vec3 c = vec3(h * 6.0, s, v);',
-    '  vec3 rgb = clamp(abs(mod(c.x + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);',
-    '  return c.z * mix(vec3(1.0), rgb, c.y);',
-    '}',
-    '',
-    '// ── Orbital parameters for each body ──',
-    '// Returns: vec4(semiMajor, eccentricity, angularSpeed, phase)',
-    'vec4 orbitParams(int idx) {',
-    '  float fi = float(idx);',
-    '  // Spread orbits across different radii — wider spacing for clearer rings',
-    '  float baseRadius = 0.1 + fi * 0.085;',
-    '  float semiMajor = baseRadius + hash1(fi * 11.3 + 10.0) * 0.025;',
-    '  // Low eccentricity for smooth, nearly-circular orbits',
-    '  float ecc = 0.03 + hash1(fi * 13.7 + 20.0) * 0.15;',
-    '  // Different orbital periods (outer = slower, Kepler-ish)',
-    '  float speed = (0.07 + hash1(fi * 17.1 + 30.0) * 0.05) / (0.6 + semiMajor);',
-    '  float phase = hash1(fi * 19.3 + 40.0) * TAU;',
-    '  return vec4(semiMajor, ecc, speed, phase);',
-    '}',
-    '',
-    '// ── Orbit inclination/tilt per body ──',
-    'float orbitTilt(int idx) {',
-    '  float fi = float(idx);',
-    '  // Each orbit is tilted slightly differently for visual depth',
-    '  return (hash1(fi * 23.7 + 50.0) - 0.5) * 0.5;',
-    '}',
-    '',
-    '// ── Compute body position at time t ──',
-    'vec2 bodyPosition(int idx, float t) {',
-    '  vec4 op = orbitParams(idx);',
-    '  float a = op.x;       // semi-major axis',
-    '  float e = op.y;       // eccentricity',
-    '  float speed = op.z;   // angular speed',
-    '  float phase = op.w;   // phase offset',
-    '  float tilt = orbitTilt(idx);',
-    '',
-    '  // Mean anomaly',
-    '  float M = speed * t * u_orbitSpeed + phase;',
-    '',
-    '  // Solve Kepler\'s equation iteratively: E - e*sin(E) = M',
-    '  // 3 iterations is plenty for low eccentricity',
-    '  float E = M;',
-    '  E = M + e * sin(E);',
-    '  E = M + e * sin(E);',
-    '  E = M + e * sin(E);',
-    '',
-    '  // True anomaly position on ellipse',
-    '  float cosE = cos(E);',
-    '  float sinE = sin(E);',
-    '  float x = a * (cosE - e);',
-    '  float y = a * sqrt(1.0 - e * e) * sinE;',
-    '',
-    '  // Apply tilt rotation (rotate in 2D to simulate inclination)',
-    '  float ct = cos(tilt);',
-    '  float st = sin(tilt);',
-    '  return vec2(x * ct - y * st, x * st + y * ct);',
-    '}',
-    '',
-    '// ── Body visual radius ──',
-    'float bodyRadius(int idx) {',
-    '  float fi = float(idx);',
-    '  return 0.012 + hash1(fi * 29.1 + 60.0) * 0.018;',
-    '}',
-    '',
-    '// ── Render a single glowing orb ──',
-    'vec3 renderBody(vec2 uv, vec2 pos, float radius, vec3 color, float time, float idx) {',
-    '  float d = length(uv - pos);',
-    '',
-    '  // Subtle size breathing',
-    '  float breath = 1.0 + 0.06 * sin(time * 0.8 + idx * 2.7);',
-    '  float r = radius * breath;',
-    '',
-    '  // Bright inner core',
-    '  float core = smoothstep(r, r * 0.2, d);',
-    '  // Brighter center',
-    '  float hotCenter = smoothstep(r * 0.5, 0.0, d);',
-    '',
-    '  // Soft inner halo',
-    '  float innerHalo = exp(-d * d / (r * r * 3.0));',
-    '',
-    '  // Wide atmospheric glow',
-    '  float outerGlow = exp(-d * d / (r * r * 18.0));',
-    '',
-    '  // Very wide ambient glow',
-    '  float ambientGlow = exp(-d * d / (r * r * 80.0));',
-    '',
-    '  // Compose: white-hot core fading to colored glow',
-    '  vec3 coreColor = mix(color, vec3(1.0, 0.97, 0.92), 0.7);',
-    '  vec3 result = coreColor * core * 1.5;',
-    '  result += vec3(1.0, 0.98, 0.94) * hotCenter * 0.6;',
-    '  result += color * innerHalo * 0.8;',
-    '  result += color * outerGlow * 0.3;',
-    '  result += color * ambientGlow * 0.08;',
-    '',
-    '  return result;',
-    '}',
-    '',
-    '// ── Background starfield (grid-based, O(1) per pixel) ──',
-    'float bgStars(vec2 uv, float t) {',
-    '  float stars = 0.0;',
-    '  // Check 2x2 grid neighborhood for nearby star',
-    '  vec2 gridScale = vec2(12.0);',
-    '  vec2 cell = floor(uv * gridScale);',
-    '  for (int dx = -1; dx <= 1; dx++) {',
-    '    for (int dy = -1; dy <= 1; dy++) {',
-    '      vec2 c = cell + vec2(float(dx), float(dy));',
-    '      // Hash determines if this cell has a star and where',
-    '      float h = hash(c + vec2(500.0));',
-    '      if (h > 0.4) continue; // ~40% of cells have a star',
-    '      vec2 starPos = (c + vec2(hash(c + vec2(100.0)), hash(c + vec2(200.0)))) / gridScale;',
-    '      float d = length(uv - starPos);',
-    '      float twinkle = 0.5 + 0.5 * sin(t * (0.3 + h * 0.8) + h * 17.0);',
-    '      float size = 0.001 + h * 0.003;',
-    '      stars += smoothstep(size, 0.0, d) * twinkle * 0.7;',
-    '    }',
-    '  }',
-    '  return stars;',
-    '}',
-    '',
-    '// ── Subtle nebula background ──',
-    'float nebula(vec2 p, float t) {',
-    '  float n = 0.0;',
-    '  float amp = 0.5;',
-    '  float freq = 1.5;',
-    '  for (int i = 0; i < 4; i++) {',
-    '    n += amp * noise(p * freq + t * 0.02);',
-    '    freq *= 2.1;',
-    '    amp *= 0.45;',
-    '    p += vec2(1.7, 9.2);',
-    '  }',
-    '  return n;',
-    '}',
-    '',
-    'void main() {',
-    '  vec2 uv = (gl_FragCoord.xy - u_res * 0.5) / min(u_res.x, u_res.y);',
-    '  float t = u_time;',
-    '  float aspect = u_res.x / u_res.y;',
-    '',
-    '  // ── Deep space background ──',
-    '  vec3 col = vec3(0.012, 0.010, 0.014);',
-    '',
-    '  // ── Subtle nebula wash ──',
-    '  float neb = nebula(uv * 2.0, t);',
-    '  vec3 nebColor = mix(',
-    '    vec3(0.04, 0.025, 0.015),',
-    '    vec3(0.06, 0.035, 0.02),',
-    '    neb',
-    '  );',
-    '  col += nebColor * smoothstep(0.3, 0.7, neb) * 0.4;',
-    '',
-    '  // ── Background stars ──',
-    '  float starField = bgStars(uv, t);',
-    '  vec3 starColor = vec3(0.82, 0.76, 0.65);',
-    '  col += starColor * starField;',
-    '',
-    '  // ── Render trails + bodies + lens glow in one merged loop ──',
-    '  float trailTimeSpan = 55.0 * u_trailDensity;',
-    '',
-    '  for (int b = 0; b < NUM_BODIES; b++) {',
-    '    vec3 bCol = bodyColor(b);',
-    '    float bRad = bodyRadius(b);',
-    '    float fi = float(b);',
-    '',
-    '    // Precompute orbit params + constant trig once per body',
-    '    vec4 op = orbitParams(b);',
-    '    float bA = op.x, bE = op.y, bSpd = op.z, bPh = op.w;',
-    '    float bTilt = orbitTilt(b);',
-    '    float bCT = cos(bTilt), bST = sin(bTilt);',
-    '    float bSqrt1mE2 = sqrt(1.0 - bE * bE);',
-    '    float maxOrbitR = bA * (1.0 + bE) + bRad * 2.0;',
-    '',
-    '    // Quick check: skip body entirely if pixel is far from orbit region',
-    '    float uvDist = length(uv);',
-    '    if (uvDist > maxOrbitR + bRad * 6.0 && uvDist < bA * (1.0 - bE) - bRad * 6.0) {',
-    '      // Inside hole or outside orbit — still render but skip trails',
-    '    } else {',
-    '      // Trail: sample past positions with early distance bail',
-    '      float cutoff = bRad * bRad * 3.5 * 10.0; // exp(-10) ≈ 0, skip beyond this',
-    '      for (int s = 1; s < TRAIL_STEPS; s++) {',
-    '        float fs = float(s);',
-    '        float frac = fs / float(TRAIL_STEPS);',
-    '        float pastTime = t - frac * trailTimeSpan;',
-    '',
-    '        // Inline bodyPosition with precomputed params',
-    '        float M = bSpd * pastTime * u_orbitSpeed + bPh;',
-    '        float E = M; E = M + bE * sin(E); E = M + bE * sin(E);',
-    '        float cosE = cos(E), sinE = sin(E);',
-    '        float px = bA * (cosE - bE);',
-    '        float py = bA * bSqrt1mE2 * sinE;',
-    '        vec2 pos = vec2(px * bCT - py * bST, px * bST + py * bCT);',
-    '',
-    '        vec2 delta = uv - pos;',
-    '        float d2 = dot(delta, delta);',
-    '',
-    '        // Early bail: skip if too far for visible contribution',
-    '        float trailWidth = bRad * (0.3 + 0.7 * (1.0 - frac));',
-    '        float sigma2 = trailWidth * trailWidth * 3.5;',
-    '        if (d2 > sigma2 * 10.0) continue;',
-    '',
-    '        float alpha = (1.0 - frac) * (1.0 - frac * 0.5) * 0.032;',
-    '        float glow = exp(-d2 / sigma2);',
-    '        col += bCol * glow * alpha;',
-    '      }',
-    '    }',
-    '',
-    '    // Body itself + lens glow (always render)',
-    '    vec2 pos = bodyPosition(b, t);',
-    '    col += renderBody(uv, pos, bRad, bCol, t, fi);',
-    '    float d = length(uv - pos);',
-    '    float lensGlow = exp(-d * d / (bRad * bRad * 120.0));',
-    '    col += bCol * lensGlow * 0.015;',
-    '  }',
-    '',
-    '  // ── Vignette ──',
-    '  float dist = length(uv);',
-    '  float vignette = 1.0 - smoothstep(0.5, 1.4, dist);',
-    '  col *= 0.65 + vignette * 0.35;',
-    '',
-    '  // ── Ensure no negative values ──',
-    '  col = max(col, vec3(0.0));',
-    '',
-    '  // ── Subtle tone curve for warmth ──',
-    '  col = pow(col, vec3(0.95, 1.0, 1.06));',
-    '',
-    '  gl_FragColor = vec4(col, 1.0);',
-    '}'
-  ].join('\n');
+  // ── Params (match shaders.ts names exactly) ──
+  var gravityStrength = 1.0;  // GRAVITY_STRENGTH: maps to trail persistence
+  var trailLength = 200;      // TRAIL_LENGTH: maps to trail fade speed
 
-  function compile(type, src) {
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', gl.getShaderInfoLog(s));
+  // ── Deterministic hash ──
+  function hash(n) {
+    return ((Math.sin(n) * 43758.5453123) % 1 + 1) % 1;
+  }
+
+  // ── HSV to RGB ──
+  function hsvToRgb(h, s, v) {
+    var i = Math.floor(h * 6);
+    var f = h * 6 - i;
+    var p = v * (1 - s);
+    var q = v * (1 - f * s);
+    var t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0: return [v, t, p];
+      case 1: return [q, v, p];
+      case 2: return [p, v, t];
+      case 3: return [p, q, v];
+      case 4: return [t, p, v];
+      case 5: return [v, p, q];
     }
-    return s;
+    return [v, v, v];
   }
 
-  var prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertSrc));
-  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragSrc));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error('Program link error:', gl.getProgramInfoLog(prog));
+  // ── Build body parameters ──
+  var bodies = [];
+  for (var i = 0; i < NUM_BODIES; i++) {
+    var fi = i;
+    var h1 = hash(fi * 11.3 + 10.0);
+    var h2 = hash(fi * 13.7 + 20.0);
+    var h3 = hash(fi * 17.1 + 30.0);
+    var h4 = hash(fi * 19.3 + 40.0);
+    var h5 = hash(fi * 23.7 + 50.0);
+    var h6 = hash(fi * 29.1 + 60.0);
+    var h7 = hash(fi * 7.31 + 1.0);
+    var h8 = hash(fi * 3.17 + 2.0);
+    var h9 = hash(fi * 5.91 + 3.0);
+
+    var semiMajor = 0.1 + fi * 0.085 + h1 * 0.025;
+    var ecc = 0.03 + h2 * 0.15;
+    var speed = (0.07 + h3 * 0.05) / (0.6 + semiMajor);
+    var phase = h4 * TAU;
+    var tilt = (h5 - 0.5) * 0.5;
+
+    // Visual size: larger than original shader
+    var glowRadius = 30 + h6 * 30; // 30-60px base glow radius
+
+    // Color: warm amber range, hue 0.06–0.14
+    var hue = 0.06 + h7 * 0.08;
+    var sat = 0.5 + h8 * 0.35;
+    var val = 0.75 + h9 * 0.25;
+    var rgb = hsvToRgb(hue, sat, val);
+
+    bodies.push({
+      semiMajor: semiMajor,
+      ecc: ecc,
+      speed: speed,
+      phase: phase,
+      tilt: tilt,
+      ct: Math.cos(tilt),
+      st: Math.sin(tilt),
+      sqrt1mE2: Math.sqrt(1 - ecc * ecc),
+      glowRadius: glowRadius,
+      r: Math.round(rgb[0] * 255),
+      g: Math.round(rgb[1] * 255),
+      b: Math.round(rgb[2] * 255)
+    });
   }
-  gl.useProgram(prog);
 
-  var buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  var aPos = gl.getAttribLocation(prog, 'a_pos');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-  var uTime = gl.getUniformLocation(prog, 'u_time');
-  var uRes = gl.getUniformLocation(prog, 'u_res');
-  var uTrailDensity = gl.getUniformLocation(prog, 'u_trailDensity');
-  var uOrbitSpeed = gl.getUniformLocation(prog, 'u_orbitSpeed');
-
-  var trailDensityVal = 1.0;
-  var orbitSpeedVal = 1.0;
-
-  var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale * 0.5;
+  // ── Canvas sizing ──
+  var W, H, dpr, minDim;
 
   function resize() {
-    var w = Math.round(canvas.clientWidth * dpr);
-    var h = Math.round(canvas.clientHeight * dpr);
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-      gl.viewport(0, 0, w, h);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+    var newW = Math.round(W * dpr);
+    var newH = Math.round(H * dpr);
+    if (canvas.width !== newW || canvas.height !== newH) {
+      canvas.width = newW;
+      canvas.height = newH;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      minDim = Math.min(W, H);
+      // Reinitialize backgrounds on resize
+      initStarfield();
+      initNebula();
+      needsFullRedraw = true;
     }
   }
 
-  var paused = false;
+  // ── Body position from Keplerian orbit ──
+  function bodyPosition(body, time) {
+    var M = body.speed * time + body.phase;
+    // Solve Kepler's equation (2 iterations, sufficient for low ecc)
+    var E = M;
+    E = M + body.ecc * Math.sin(E);
+    E = M + body.ecc * Math.sin(E);
+    // Position on ellipse
+    var cosE = Math.cos(E);
+    var sinE = Math.sin(E);
+    var x = body.semiMajor * (cosE - body.ecc);
+    var y = body.semiMajor * body.sqrt1mE2 * sinE;
+    // Apply tilt rotation
+    return {
+      x: x * body.ct - y * body.st,
+      y: x * body.st + y * body.ct
+    };
+  }
 
-  function render(now) {
-    if (!paused) {
-      resize();
-      gl.uniform1f(uTime, prefersReduced ? 0.0 : now * 0.001);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.uniform1f(uTrailDensity, trailDensityVal);
-      gl.uniform1f(uOrbitSpeed, orbitSpeedVal);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // ── Pre-rendered starfield ──
+  var starCanvas = document.createElement('canvas');
+  var starCtx = starCanvas.getContext('2d');
+  var NUM_STARS = 180;
+
+  function initStarfield() {
+    starCanvas.width = Math.round(W * dpr);
+    starCanvas.height = Math.round(H * dpr);
+    starCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    starCtx.clearRect(0, 0, W, H);
+
+    for (var i = 0; i < NUM_STARS; i++) {
+      var sx = hash(i * 127.1 + 500.0) * W;
+      var sy = hash(i * 311.7 + 600.0) * H;
+      var brightness = 0.3 + hash(i * 57.3 + 700.0) * 0.7;
+      var size = 0.5 + hash(i * 89.1 + 800.0) * 1.5;
+
+      // Warm white star color
+      var sr = Math.round(204 * brightness);
+      var sg = Math.round(192 * brightness);
+      var sb = Math.round(170 * brightness);
+
+      starCtx.beginPath();
+      starCtx.arc(sx, sy, size, 0, TAU);
+      starCtx.fillStyle = 'rgba(' + sr + ',' + sg + ',' + sb + ',' + (brightness * 0.8) + ')';
+      starCtx.fill();
+
+      // Tiny glow around brighter stars
+      if (brightness > 0.6) {
+        var grd = starCtx.createRadialGradient(sx, sy, 0, sx, sy, size * 3);
+        grd.addColorStop(0, 'rgba(' + sr + ',' + sg + ',' + sb + ',0.15)');
+        grd.addColorStop(1, 'rgba(' + sr + ',' + sg + ',' + sb + ',0)');
+        starCtx.beginPath();
+        starCtx.arc(sx, sy, size * 3, 0, TAU);
+        starCtx.fillStyle = grd;
+        starCtx.fill();
+      }
     }
+  }
+
+  // ── Pre-rendered nebula ──
+  var nebulaCanvas = document.createElement('canvas');
+  var nebulaCtx = nebulaCanvas.getContext('2d');
+
+  function simpleNoise(x, y) {
+    // Simple value noise for nebula
+    var ix = Math.floor(x);
+    var iy = Math.floor(y);
+    var fx = x - ix;
+    var fy = y - iy;
+    // Smoothstep
+    fx = fx * fx * (3 - 2 * fx);
+    fy = fy * fy * (3 - 2 * fy);
+    var a = hash(ix * 127.1 + iy * 311.7 + 1000);
+    var b = hash((ix + 1) * 127.1 + iy * 311.7 + 1000);
+    var c = hash(ix * 127.1 + (iy + 1) * 311.7 + 1000);
+    var d = hash((ix + 1) * 127.1 + (iy + 1) * 311.7 + 1000);
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  }
+
+  function fbmNoise(x, y) {
+    var val = 0;
+    var amp = 0.5;
+    var freq = 1.5;
+    for (var i = 0; i < 4; i++) {
+      val += amp * simpleNoise(x * freq + i * 1.7, y * freq + i * 9.2);
+      freq *= 2.1;
+      amp *= 0.45;
+    }
+    return val;
+  }
+
+  function initNebula() {
+    // Render at lower resolution for performance
+    var scale = 4;
+    var nw = Math.ceil(W / scale);
+    var nh = Math.ceil(H / scale);
+    nebulaCanvas.width = nw;
+    nebulaCanvas.height = nh;
+
+    var imgData = nebulaCtx.createImageData(nw, nh);
+    var data = imgData.data;
+
+    for (var py = 0; py < nh; py++) {
+      for (var px = 0; px < nw; px++) {
+        // Normalized coords
+        var nx = (px / nw - 0.5) * 2;
+        var ny = (py / nh - 0.5) * 2;
+        var n = fbmNoise(nx * 2, ny * 2);
+        var intensity = Math.max(0, n - 0.3) * 0.4;
+        // Warm brown nebula tint
+        var idx = (py * nw + px) * 4;
+        data[idx] = Math.round(15 * intensity * 255);     // R: subtle warm
+        data[idx + 1] = Math.round(8 * intensity * 255);  // G
+        data[idx + 2] = Math.round(4 * intensity * 255);  // B
+        data[idx + 3] = Math.round(intensity * 255);
+      }
+    }
+    nebulaCtx.putImageData(imgData, 0, 0);
+  }
+
+  // ── Vignette (pre-rendered) ──
+  var vignetteCanvas = document.createElement('canvas');
+  var vignetteCtx = vignetteCanvas.getContext('2d');
+
+  function initVignette() {
+    vignetteCanvas.width = Math.round(W * dpr);
+    vignetteCanvas.height = Math.round(H * dpr);
+    vignetteCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var cx = W / 2;
+    var cy = H / 2;
+    var maxR = Math.sqrt(cx * cx + cy * cy);
+    var grd = vignetteCtx.createRadialGradient(cx, cy, minDim * 0.3, cx, cy, maxR);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.45)');
+    vignetteCtx.fillStyle = grd;
+    vignetteCtx.fillRect(0, 0, W, H);
+  }
+
+  // ── Star twinkle state ──
+  var starTwinklePhases = [];
+  var starTwinkleSpeeds = [];
+  for (var i = 0; i < NUM_STARS; i++) {
+    starTwinklePhases.push(hash(i * 41.3 + 900.0) * TAU);
+    starTwinkleSpeeds.push(0.3 + hash(i * 53.7 + 950.0) * 0.8);
+  }
+
+  // ── Render star twinkle overlay ──
+  function drawStarTwinkle(time) {
+    for (var i = 0; i < NUM_STARS; i++) {
+      var brightness = hash(i * 57.3 + 700.0);
+      if (brightness < 0.5) continue; // Only twinkle brighter stars
+      var sx = hash(i * 127.1 + 500.0) * W;
+      var sy = hash(i * 311.7 + 600.0) * H;
+      var twinkle = 0.5 + 0.5 * Math.sin(time * starTwinkleSpeeds[i] + starTwinklePhases[i]);
+      var size = (0.5 + brightness * 1.5) * (0.6 + twinkle * 0.4);
+      var alpha = brightness * 0.8 * (0.5 + twinkle * 0.5);
+
+      var sr = Math.round(204 * brightness);
+      var sg = Math.round(192 * brightness);
+      var sb = Math.round(170 * brightness);
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, size, 0, TAU);
+      ctx.fillStyle = 'rgba(' + sr + ',' + sg + ',' + sb + ',' + alpha + ')';
+      ctx.fill();
+    }
+  }
+
+  // ── Draw a glowing body ──
+  function drawBody(px, py, body, time, idx) {
+    var r = body.glowRadius;
+
+    // Subtle size breathing
+    var breath = 1.0 + 0.06 * Math.sin(time * 0.8 + idx * 2.7);
+    r *= breath;
+
+    // Scale radius based on canvas
+    var scaledR = r * (minDim / 800);
+
+    // Wide soft outer glow
+    var outerR = scaledR * 3.5;
+    var grd1 = ctx.createRadialGradient(px, py, 0, px, py, outerR);
+    grd1.addColorStop(0, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.18)');
+    grd1.addColorStop(0.3, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.08)');
+    grd1.addColorStop(0.7, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.02)');
+    grd1.addColorStop(1, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0)');
+    ctx.beginPath();
+    ctx.arc(px, py, outerR, 0, TAU);
+    ctx.fillStyle = grd1;
+    ctx.fill();
+
+    // Inner colored glow
+    var innerR = scaledR * 1.5;
+    var grd2 = ctx.createRadialGradient(px, py, 0, px, py, innerR);
+    grd2.addColorStop(0, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.7)');
+    grd2.addColorStop(0.4, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.3)');
+    grd2.addColorStop(1, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0)');
+    ctx.beginPath();
+    ctx.arc(px, py, innerR, 0, TAU);
+    ctx.fillStyle = grd2;
+    ctx.fill();
+
+    // White-hot core
+    var coreR = scaledR * 0.45;
+    var grd3 = ctx.createRadialGradient(px, py, 0, px, py, coreR);
+    grd3.addColorStop(0, 'rgba(255,248,240,0.95)');
+    grd3.addColorStop(0.3, 'rgba(255,245,235,0.6)');
+    grd3.addColorStop(0.7, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0.2)');
+    grd3.addColorStop(1, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0)');
+    ctx.beginPath();
+    ctx.arc(px, py, coreR, 0, TAU);
+    ctx.fillStyle = grd3;
+    ctx.fill();
+
+    // Bright center dot
+    var dotR = scaledR * 0.12;
+    ctx.beginPath();
+    ctx.arc(px, py, dotR, 0, TAU);
+    ctx.fillStyle = 'rgba(255,252,245,0.9)';
+    ctx.fill();
+  }
+
+  // ── Draw trail glow for a body at a position ──
+  function drawTrailGlow(px, py, body, alpha) {
+    var r = body.glowRadius;
+    var scaledR = r * (minDim / 800) * 1.2;
+
+    var grd = ctx.createRadialGradient(px, py, 0, px, py, scaledR);
+    grd.addColorStop(0, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',' + (alpha * 0.5) + ')');
+    grd.addColorStop(0.5, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',' + (alpha * 0.2) + ')');
+    grd.addColorStop(1, 'rgba(' + body.r + ',' + body.g + ',' + body.b + ',0)');
+    ctx.beginPath();
+    ctx.arc(px, py, scaledR, 0, TAU);
+    ctx.fillStyle = grd;
+    ctx.fill();
+  }
+
+  // ── Normalized coords to pixel coords ──
+  function toPixel(nx, ny) {
+    return {
+      x: W * 0.5 + nx * minDim,
+      y: H * 0.5 + ny * minDim
+    };
+  }
+
+  // ── State ──
+  var paused = false;
+  var needsFullRedraw = true;
+  var frameCount = 0;
+  var startTime = 0;
+
+  // ── Compute fade alpha from params ──
+  function getFadeAlpha() {
+    // TRAIL_LENGTH range: 50-500, default 200
+    // Lower TRAIL_LENGTH = shorter trails = higher fade alpha
+    // Higher TRAIL_LENGTH = longer trails = lower fade alpha
+    // Map 50->0.08, 200->0.03, 500->0.008
+    var t = (trailLength - 50) / 450; // 0 to 1
+    var alpha = 0.08 - t * 0.072; // 0.08 down to 0.008
+    return Math.max(0.005, Math.min(0.1, alpha));
+  }
+
+  // ── Get orbit speed multiplier from GRAVITY_STRENGTH ──
+  function getOrbitSpeed() {
+    return gravityStrength;
+  }
+
+  // ── Main render ──
+  function render(now) {
+    if (paused) {
+      requestAnimationFrame(render);
+      return;
+    }
+
+    if (startTime === 0) startTime = now;
+    var time = prefersReduced ? 0 : (now - startTime) * 0.001;
+
+    resize();
+
+    var fadeAlpha = getFadeAlpha();
+    var orbitSpeed = getOrbitSpeed();
+
+    if (needsFullRedraw) {
+      // Full clear and redraw background
+      ctx.fillStyle = '#0c0a0e';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw nebula
+      ctx.globalAlpha = 1;
+      ctx.drawImage(nebulaCanvas, 0, 0, W, H);
+
+      // Draw starfield
+      ctx.globalAlpha = 1;
+      ctx.drawImage(starCanvas, 0, 0, W, H);
+
+      // Draw vignette
+      initVignette();
+      ctx.drawImage(vignetteCanvas, 0, 0, W, H);
+
+      needsFullRedraw = false;
+      frameCount = 0;
+    }
+
+    // ── Alpha overlay for trail fade ──
+    // Composite the deep space color with low alpha to create trails
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(12, 10, 14,' + fadeAlpha + ')';
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Redraw starfield faintly to prevent it from fading out ──
+    // Every few frames, re-stamp stars so they persist through the fade
+    if (frameCount % 3 === 0) {
+      ctx.globalAlpha = fadeAlpha * 4;
+      ctx.drawImage(starCanvas, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+
+      // Also maintain nebula
+      ctx.globalAlpha = fadeAlpha * 3;
+      ctx.drawImage(nebulaCanvas, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+
+    // Star twinkle
+    if (frameCount % 4 === 0) {
+      drawStarTwinkle(time);
+    }
+
+    // ── Draw bodies ──
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (var i = 0; i < NUM_BODIES; i++) {
+      var body = bodies[i];
+      var pos = bodyPosition(body, time * orbitSpeed);
+      var pixel = toPixel(pos.x, pos.y);
+
+      // Draw trail glow at current position (accumulates over frames)
+      var trailAlpha = 0.12 + gravityStrength * 0.08; // More gravity = denser trails
+      drawTrailGlow(pixel.x, pixel.y, body, trailAlpha);
+
+      // Draw the body itself
+      drawBody(pixel.x, pixel.y, body, time, i);
+    }
+
+    // ── Vignette (composite normally) ──
+    ctx.globalCompositeOperation = 'source-over';
+    // Subtle vignette re-application every frame to darken edges
+    ctx.globalAlpha = fadeAlpha * 2;
+    ctx.drawImage(vignetteCanvas, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+
+    frameCount++;
     requestAnimationFrame(render);
   }
 
+  // ── Init ──
+  resize();
   requestAnimationFrame(render);
 
   // ── Visibility-based pause ──
   document.addEventListener('visibilitychange', function () {
     paused = document.hidden;
+    if (!paused) {
+      needsFullRedraw = true;
+      startTime = 0;
+    }
   });
 
   // ── Message listener for parameter updates ──
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'param') {
       switch (e.data.name) {
-        case 'TRAIL_DENSITY': trailDensityVal = e.data.value; break;
-        case 'ORBIT_SPEED': orbitSpeedVal = e.data.value; break;
+        case 'GRAVITY_STRENGTH':
+          gravityStrength = e.data.value;
+          break;
+        case 'TRAIL_LENGTH':
+          trailLength = e.data.value;
+          break;
       }
     }
   });
