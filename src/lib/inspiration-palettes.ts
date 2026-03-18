@@ -61,14 +61,6 @@ export const inspirationPalettes: Record<string, InspirationPalette> = {
 		primary: '#B89848',
 		colors: ['#C8944C', '#B89848', '#6080A0']
 	},
-	'dolly-parton': {
-		primary: '#D4A44C',
-		colors: ['#D4A44C', '#2A6A3A', '#E84890']
-	},
-	'hozier': {
-		primary: '#6A8A5A',
-		colors: ['#6A8A5A', '#C89448', '#8A8A90']
-	},
 	'chappell-roan': {
 		primary: '#E83878',
 		colors: ['#E83878', '#88CC28', '#C8A038']
@@ -147,10 +139,6 @@ export const inspirationPalettes: Record<string, InspirationPalette> = {
 		primary: '#5A2858',
 		colors: ['#282030', '#5A2858', '#A0A0B8']
 	},
-	'glen-powell': {
-		primary: '#D4A858',
-		colors: ['#D4A858', '#3080C8', '#E8E0D8']
-	},
 	'ana-de-armas': {
 		primary: '#D4A038',
 		colors: ['#D4A038', '#E8E0D0', '#8A7838']
@@ -178,10 +166,6 @@ export const inspirationPalettes: Record<string, InspirationPalette> = {
 	'scarlett-johansson': {
 		primary: '#A82030',
 		colors: ['#484850', '#A82030', '#8098B0']
-	},
-	'emma-stone': {
-		primary: '#C87848',
-		colors: ['#C87848', '#D4A868', '#785098']
 	},
 	'jennifer-lawrence': {
 		primary: '#D88898',

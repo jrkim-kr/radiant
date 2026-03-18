@@ -633,32 +633,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'rhinestone-cascade',
-		file: 'rhinestone-cascade.html',
-		title: 'Rhinestone Cascade',
-		desc: 'Faceted crystal particles cascading with specular flashes and prismatic sparkle.',
-		inspiration: 'Dolly Parton',
-		tags: ['fill', 'particles', 'physics'],
-		technique: 'webgl',
-		params: [
-			{ name: 'SPARKLE_RATE', label: 'Sparkle Rate', min: 1, max: 15, step: 1, default: 5 },
-			{ name: 'FALL_SPEED', label: 'Fall Speed', min: 0.3, max: 2.5, step: 0.1, default: 1.0 }
-		]
-	},
-	{
-		id: 'moss-and-bone',
-		file: 'moss-and-bone.html',
-		title: 'Moss & Bone',
-		desc: 'Cellular automata moss growth spreading across ancient stone with earthy palette.',
-		inspiration: 'Hozier',
-		tags: ['fill', 'organic'],
-		technique: 'webgl',
-		params: [
-			{ name: 'GROWTH_RATE', label: 'Growth Rate', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'SEED_COUNT', label: 'Seed Points', min: 1, max: 8, step: 1, default: 4 }
-		]
-	},
-	{
 		id: 'neon-revival',
 		file: 'neon-revival.html',
 		title: 'Neon Revival',
@@ -909,19 +883,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'contrail-weave',
-		file: 'contrail-weave.html',
-		title: 'Contrail Weave',
-		desc: 'Aircraft contrails painting sweeping arcs across a warm sunset sky.',
-		inspiration: 'Glen Powell',
-		tags: ['fill', 'particles'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'FLIGHT_SPEED', label: 'Flight Speed', min: 0.3, max: 2.5, step: 0.1, default: 1.0 },
-			{ name: 'TRAIL_FADE', label: 'Trail Fade', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'laser-precision',
 		file: 'laser-precision.html',
 		title: 'Laser Precision',
@@ -1052,19 +1013,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'playful-caustics',
-		file: 'playful-caustics.html',
-		title: 'Playful Caustics',
-		desc: 'Dancing water caustic light patterns on a warm sunlit surface.',
-		inspiration: 'Emma Stone',
-		tags: ['fill', 'noise'],
-		technique: 'webgl',
-		params: [
-			{ name: 'WATER_SPEED', label: 'Water Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'CAUSTIC_SCALE', label: 'Caustic Scale', min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'wildfire',
 		file: 'wildfire.html',
 		title: 'Wildfire',
@@ -1082,7 +1030,7 @@ export const shaders: Shader[] = [
 		file: 'vinyl-grooves.html',
 		title: 'Vinyl Grooves',
 		desc: 'Spinning vinyl record with visible grooves, tonearm, and needle spark.',
-		inspiration: 'Dolly Parton',
+		inspiration: 'Laufey',
 		tags: ['object', 'geometric'],
 		technique: 'webgl',
 		params: [
@@ -1222,7 +1170,8 @@ export const shaders: Shader[] = [
 			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.0, max: 1.0, step: 0.05, default: 0.3 },
 			{ name: 'FLOW_SPEED', label: 'Flow Speed', min: 0.0, max: 1.5, step: 0.05, default: 0.5 },
 			{ name: 'TILT', label: 'Tilt', min: 0.0, max: 1.5, step: 0.05, default: 0.65 },
-			{ name: 'ZOOM', label: 'Zoom', min: 4.0, max: 12.0, step: 0.2, default: 7.2 }
+			{ name: 'ZOOM', label: 'Zoom', min: 4.0, max: 12.0, step: 0.2, default: 7.2 },
+			{ name: 'SHAPE', label: 'Shape', min: 0, max: 2, step: 1, default: 0 }
 		]
 	},
 	{
