@@ -909,19 +909,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'deep-current',
-		file: 'deep-current.html',
-		title: 'Deep Current',
-		desc: 'Underwater ocean currents with kelp fronds, rising bubbles, and caustic light.',
-		inspiration: 'Jason Momoa',
-		tags: ['fill', 'particles', 'organic'],
-		technique: 'webgl',
-		params: [
-			{ name: 'CURRENT_SPEED', label: 'Current Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'KELP_COUNT', label: 'Kelp Count', min: 2, max: 8, step: 1, default: 5 }
-		]
-	},
-	{
 		id: 'woven-radiance',
 		file: 'woven-radiance.html',
 		title: 'Woven Radiance',
@@ -978,7 +965,7 @@ export const shaders: Shader[] = [
 		file: 'thunder-sermon.html',
 		title: 'Thunder Sermon',
 		desc: 'Fractal lightning bolts with Lichtenberg branching and thunder shockwaves.',
-		inspiration: 'Jason Momoa',
+		inspiration: 'The Weeknd',
 		tags: ['fill', 'physics'],
 		technique: 'webgl',
 		params: [
