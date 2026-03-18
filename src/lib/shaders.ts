@@ -1184,19 +1184,6 @@ export const shaders: Shader[] = [
 			{ name: 'COHESION', label: 'Cohesion', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
 			{ name: 'PALETTE', label: 'Twilight', min: 0.0, max: 1.0, step: 1.0, default: 1.0 }
 		]
-	},
-	{
-		id: 'frost-veil',
-		file: 'frost-veil.html',
-		title: 'Frost Veil',
-		desc: 'Dendritic frost crystallization spreading across a warm amber surface with prismatic edge highlights.',
-		inspiration: 'Anne Hathaway',
-		tags: ['fill', 'organic'],
-		technique: 'webgl',
-		params: [
-			{ name: 'GROWTH_SPEED', label: 'Growth Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'FROST_DENSITY', label: 'Frost Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
-		]
 	}
 ];
 
