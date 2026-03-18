@@ -335,7 +335,7 @@ export const shaders: Shader[] = [
 		file: 'sacred-strange.html',
 		title: 'Sacred Strange',
 		desc: 'Fractal golden geometry with overlapping star motifs creating Doctor Strange-like dimensional patterns.',
-		inspiration: 'Beyoncé',
+		inspiration: 'Benedict Cumberbatch',
 		tags: ['fill', 'geometric'],
 		technique: 'webgl',
 		params: [
