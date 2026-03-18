@@ -779,19 +779,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'ember-garden',
-		file: 'ember-garden.html',
-		title: 'Ember Garden',
-		desc: 'Glowing embers rising from smoldering ground with thermal cooling and heat shimmer.',
-		inspiration: 'Florence Pugh',
-		tags: ['fill', 'particles', 'physics'],
-		technique: 'webgl',
-		params: [
-			{ name: 'EMBER_RATE', label: 'Ember Rate', min: 1, max: 12, step: 1, default: 4 },
-			{ name: 'HEAT_GLOW', label: 'Heat Glow', min: 0.2, max: 1.0, step: 0.05, default: 0.7 }
-		]
-	},
-	{
 		id: 'desert-mirage',
 		file: 'desert-mirage.html',
 		title: 'Desert Mirage',
