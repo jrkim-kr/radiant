@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tesseract Shadow</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  .label {
+    position: fixed;
+    top: 20px;
+    left: 24px;
+    color: rgba(200, 149, 108, 0.6);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="label">Tesseract Shadow</div>
+<canvas id="canvas"></canvas>
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var urlParams = new URLSearchParams(window.location.search);
+  var pixelScale = parseFloat(urlParams.get('p')) || 1;
+
+  // Parameters
+  var ROTATION_SPEED = 0.3;
+  var PROJECTION_DEPTH = 1.0;
+
+  var width, height, cx, cy, dpr;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = width / 2;
+    cy = height / 2;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ── 4D Tesseract geometry ──
+
+  // 16 vertices: all combinations of +/-1 in 4 dimensions
+  var vertices4D = [];
+  for (var i = 0; i < 16; i++) {
+    vertices4D.push([
+      (i & 1) ? 1 : -1,
+      (i & 2) ? 1 : -1,
+      (i & 4) ? 1 : -1,
+      (i & 8) ? 1 : -1
+    ]);
+  }
+
+  // 32 edges: connect vertices that differ in exactly one coordinate
+  var edges = [];
+  for (var i = 0; i < 16; i++) {
+    for (var j = i + 1; j < 16; j++) {
+      var diff = 0;
+      var diffAxis = -1;
+      for (var k = 0; k < 4; k++) {
+        if (vertices4D[i][k] !== vertices4D[j][k]) {
+          diff++;
+          diffAxis = k;
+        }
+      }
+      if (diff === 1) {
+        edges.push([i, j, diffAxis]);
+      }
+    }
+  }
+
+  // ── 4D Rotation ──
+  // Rotate in a plane defined by axes a and b
+  function rotate4D(v, a, b, angle) {
+    var out = [v[0], v[1], v[2], v[3]];
+    var c = Math.cos(angle);
+    var s = Math.sin(angle);
+    out[a] = v[a] * c - v[b] * s;
+    out[b] = v[a] * s + v[b] * c;
+    return out;
+  }
+
+  // ── Projection: 4D -> 2D ──
+  function project(v4) {
+    // 4D -> 3D perspective projection
+    var viewDist4 = 3.0 + PROJECTION_DEPTH * 1.5;
+    var scale4 = viewDist4 / (viewDist4 - v4[3]);
+    var x3 = v4[0] * scale4;
+    var y3 = v4[1] * scale4;
+    var z3 = v4[2] * scale4;
+
+    // 3D -> 2D perspective projection
+    var viewDist3 = 5.0;
+    var scale3 = viewDist3 / (viewDist3 - z3);
+    var x2 = x3 * scale3;
+    var y2 = y3 * scale3;
+
+    // Depth value for shading (combined 4D and 3D depth)
+    var depth = (v4[3] + 1) / 2 * 0.5 + (z3 + 1.5) / 3 * 0.5;
+
+    return {
+      x: x2,
+      y: y2,
+      depth: depth,
+      scale: scale4 * scale3
+    };
+  }
+
+  // ── Edge color based on axis ──
+  function edgeColor(axis, depth) {
+    // axis 0 = x, 1 = y, 2 = z, 3 = w
+    var r, g, b;
+    switch (axis) {
+      case 0: // x-axis: warm amber
+        r = 200; g = 149; b = 108;
+        break;
+      case 1: // y-axis: warm amber (slightly different)
+        r = 212; g = 165; b = 116;
+        break;
+      case 2: // z-axis: teal
+        r = 64; g = 128; b = 128;
+        break;
+      case 3: // w-axis: blue-violet
+        r = 96 + Math.round(depth * 32); g = 80 + Math.round(depth * 16); b = 160 + Math.round(depth * 32);
+        break;
+      default:
+        r = 150; g = 150; b = 150;
+    }
+    return { r: r, g: g, b: b };
+  }
+
+  // ── Trail history ──
+  var trailHistory = [];
+  var TRAIL_COUNT = 4;
+  var trailInterval = 0;
+  var TRAIL_FRAME_SKIP = 6;
+
+  // ── Dust particles ──
+  var particles = [];
+  var PARTICLE_COUNT = 24;
+  for (var i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: (Math.random() - 0.5) * 2.5,
+      y: (Math.random() - 0.5) * 2.5,
+      z: (Math.random() - 0.5) * 2.5,
+      vx: (Math.random() - 0.5) * 0.003,
+      vy: (Math.random() - 0.5) * 0.003,
+      vz: (Math.random() - 0.5) * 0.003,
+      size: 0.5 + Math.random() * 1.5,
+      brightness: 0.3 + Math.random() * 0.7,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+
+  // ── Visibility pause ──
+  var running = true;
+  document.addEventListener('visibilitychange', function() {
+    running = !document.hidden;
+    if (running) requestAnimationFrame(draw);
+  });
+
+  var startTime = null;
+
+  function draw(timestamp) {
+    if (!running) return;
+
+    if (!startTime) startTime = timestamp;
+    var elapsed = (timestamp - startTime) / 1000;
+    var time = prefersReduced ? 0 : elapsed;
+
+    resize();
+
+    var scale = Math.min(width, height) * 0.28;
+
+    // Rotation angles in different 4D planes
+    var angleXW = time * ROTATION_SPEED * 0.7;
+    var angleYZ = time * ROTATION_SPEED * 0.5;
+    var angleXY = time * ROTATION_SPEED * 0.23;
+    var angleZW = time * ROTATION_SPEED * 0.17;
+
+    // Compute rotated and projected vertices
+    function computeFrame(aXW, aYZ, aXY, aZW) {
+      var projected = [];
+      for (var i = 0; i < 16; i++) {
+        var v = vertices4D[i].slice();
+        // Apply 4D rotations in multiple planes
+        v = rotate4D(v, 0, 3, aXW); // XW plane
+        v = rotate4D(v, 1, 2, aYZ); // YZ plane
+        v = rotate4D(v, 0, 1, aXY); // XY plane
+        v = rotate4D(v, 2, 3, aZW); // ZW plane
+        projected.push(project(v));
+      }
+      return projected;
+    }
+
+    var currentFrame = computeFrame(angleXW, angleYZ, angleXY, angleZW);
+
+    // Record trail
+    trailInterval++;
+    if (trailInterval >= TRAIL_FRAME_SKIP) {
+      trailInterval = 0;
+      trailHistory.push(currentFrame);
+      if (trailHistory.length > TRAIL_COUNT) {
+        trailHistory.shift();
+      }
+    }
+
+    // Clear
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+
+    // ── Layer 1: Background coordinate grid ──
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 0.5;
+    var gridSpacing = 40;
+    var gridOffsetX = cx % gridSpacing;
+    var gridOffsetY = cy % gridSpacing;
+    for (var gx = gridOffsetX; gx < width; gx += gridSpacing) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, height);
+      ctx.stroke();
+    }
+    for (var gy = gridOffsetY; gy < height; gy += gridSpacing) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(width, gy);
+      ctx.stroke();
+    }
+
+    // Subtle crosshair at center
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 30, cy);
+    ctx.lineTo(cx + 30, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 30);
+    ctx.lineTo(cx, cy + 30);
+    ctx.stroke();
+
+    // ── Layer 3: Rotation trails ──
+    for (var t = 0; t < trailHistory.length; t++) {
+      var trailFrame = trailHistory[t];
+      var trailAlpha = ((t + 1) / (trailHistory.length + 1)) * 0.12;
+
+      ctx.lineWidth = 0.5;
+      for (var e = 0; e < edges.length; e++) {
+        var a = trailFrame[edges[e][0]];
+        var b = trailFrame[edges[e][1]];
+        var axis = edges[e][2];
+        var col = edgeColor(axis, (a.depth + b.depth) * 0.5);
+        var alpha = trailAlpha * (0.3 + (a.depth + b.depth) * 0.35);
+
+        ctx.strokeStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha + ')';
+        ctx.beginPath();
+        ctx.moveTo(cx + a.x * scale, cy + a.y * scale);
+        ctx.lineTo(cx + b.x * scale, cy + b.y * scale);
+        ctx.stroke();
+      }
+    }
+
+    // ── Layer 6: Subtle particles ──
+    for (var i = 0; i < PARTICLE_COUNT; i++) {
+      var p = particles[i];
+      // Drift
+      p.x += p.vx + Math.sin(time * 0.3 + p.phase) * 0.001;
+      p.y += p.vy + Math.cos(time * 0.25 + p.phase) * 0.001;
+      p.z += p.vz + Math.sin(time * 0.2 + p.phase * 1.5) * 0.001;
+
+      // Wrap around
+      if (p.x > 2.5) p.x = -2.5;
+      if (p.x < -2.5) p.x = 2.5;
+      if (p.y > 2.5) p.y = -2.5;
+      if (p.y < -2.5) p.y = 2.5;
+      if (p.z > 2.5) p.z = -2.5;
+      if (p.z < -2.5) p.z = 2.5;
+
+      // Project 3D -> 2D
+      var pDist = 5.0;
+      var pScale = pDist / (pDist - p.z);
+      var px = cx + p.x * pScale * scale * 0.8;
+      var py = cy + p.y * pScale * scale * 0.8;
+
+      var flicker = 0.5 + 0.5 * Math.sin(time * 2 + p.phase * 3);
+      var pAlpha = p.brightness * flicker * 0.15 * pScale;
+
+      ctx.fillStyle = 'rgba(176, 192, 224, ' + pAlpha + ')';
+      ctx.beginPath();
+      ctx.arc(px, py, p.size * pScale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // ── Sort edges by average depth for painter's algorithm ──
+    var sortedEdges = [];
+    for (var e = 0; e < edges.length; e++) {
+      var a = currentFrame[edges[e][0]];
+      var b = currentFrame[edges[e][1]];
+      sortedEdges.push({
+        idx: e,
+        depth: (a.depth + b.depth) * 0.5
+      });
+    }
+    sortedEdges.sort(function(a, b) { return a.depth - b.depth; });
+
+    // ── Layer 1: Wireframe edges ──
+    for (var si = 0; si < sortedEdges.length; si++) {
+      var e = sortedEdges[si].idx;
+      var a = currentFrame[edges[e][0]];
+      var b = currentFrame[edges[e][1]];
+      var axis = edges[e][2];
+      var avgDepth = (a.depth + b.depth) * 0.5;
+
+      var col = edgeColor(axis, avgDepth);
+
+      // Depth-based opacity: closer = brighter
+      var alpha = 0.15 + avgDepth * 0.65;
+      // Depth-based line width
+      var lw = 0.6 + avgDepth * 2.0;
+
+      // Edge glow (wider, dimmer pass)
+      ctx.strokeStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + (alpha * 0.25) + ')';
+      ctx.lineWidth = lw + 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + a.x * scale, cy + a.y * scale);
+      ctx.lineTo(cx + b.x * scale, cy + b.y * scale);
+      ctx.stroke();
+
+      // Main edge line
+      ctx.strokeStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + alpha + ')';
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(cx + a.x * scale, cy + a.y * scale);
+      ctx.lineTo(cx + b.x * scale, cy + b.y * scale);
+      ctx.stroke();
+    }
+
+    // ── Layer 2: Vertex glow ──
+    for (var i = 0; i < 16; i++) {
+      var v = currentFrame[i];
+      var sx = cx + v.x * scale;
+      var sy = cy + v.y * scale;
+
+      var glowSize = 6 + v.depth * 18;
+      var glowAlpha = 0.1 + v.depth * 0.4;
+
+      // Outer glow
+      var glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowSize);
+      glow.addColorStop(0, 'rgba(176, 192, 224, ' + glowAlpha + ')');
+      glow.addColorStop(0.3, 'rgba(176, 192, 224, ' + (glowAlpha * 0.4) + ')');
+      glow.addColorStop(1, 'rgba(176, 192, 224, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(sx, sy, glowSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bright core
+      var coreSize = 1.5 + v.depth * 2.5;
+      var coreAlpha = 0.3 + v.depth * 0.6;
+      ctx.fillStyle = 'rgba(210, 220, 240, ' + coreAlpha + ')';
+      ctx.beginPath();
+      ctx.arc(sx, sy, coreSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // ── Vignette ──
+    var vig = ctx.createRadialGradient(cx, cy, Math.min(width, height) * 0.25, cx, cy, Math.max(width, height) * 0.7);
+    vig.addColorStop(0, 'rgba(10, 10, 10, 0)');
+    vig.addColorStop(1, 'rgba(10, 10, 10, 0.55)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, width, height);
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+
+  // ── PostMessage listener for parameter updates ──
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'ROTATION_SPEED': ROTATION_SPEED = e.data.value; break;
+        case 'PROJECTION_DEPTH': PROJECTION_DEPTH = e.data.value; break;
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

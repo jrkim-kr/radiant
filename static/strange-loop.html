@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strange Loop</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .label {
+    position: fixed;
+    top: 20px;
+    left: 24px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(200, 149, 108, 0.5);
+    z-index: 10;
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<div class="label">Strange Loop</div>
+<canvas id="canvas"></canvas>
+<script>
+// ─────────────────────────────────────────────
+// Strange Loop — Impossible geometry with flowing light
+// SDF raymarching of a Penrose-like impossible triangle
+// ─────────────────────────────────────────────
+(function () {
+  var canvas = document.getElementById('canvas');
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var urlParams = new URLSearchParams(window.location.search);
+  var pixelScale = parseFloat(urlParams.get('p')) || 1;
+
+  var gl = canvas.getContext('webgl', { alpha: false, antialias: false, preserveDrawingBuffer: false });
+  if (!gl) return;
+
+  var vertSrc = [
+    'attribute vec2 a_pos;',
+    'void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }'
+  ].join('\n');
+
+  var fragSrc = `
+precision highp float;
+uniform float u_time;
+uniform vec2 u_res;
+uniform float u_rotationSpeed;
+uniform float u_flowSpeed;
+
+#define PI 3.14159265359
+#define TAU 6.28318530718
+
+// ── Rotation helpers ──
+mat3 rotY(float a) {
+  float c = cos(a), s = sin(a);
+  return mat3(c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c);
+}
+
+mat3 rotX(float a) {
+  float c = cos(a), s = sin(a);
+  return mat3(1.0, 0.0, 0.0, 0.0, c, -s, 0.0, s, c);
+}
+
+mat3 rotZ(float a) {
+  float c = cos(a), s = sin(a);
+  return mat3(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
+}
+
+// ── Noise ──
+float hash2(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+float hash3(vec3 p) {
+  p = fract(p * vec3(443.897, 441.423, 437.195));
+  p += dot(p, p.yzx + 19.19);
+  return fract((p.x + p.y) * p.z);
+}
+
+float noise3(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash3(i);
+  float b = hash3(i + vec3(1, 0, 0));
+  float c = hash3(i + vec3(0, 1, 0));
+  float d = hash3(i + vec3(1, 1, 0));
+  float e = hash3(i + vec3(0, 0, 1));
+  float g = hash3(i + vec3(1, 0, 1));
+  float h = hash3(i + vec3(0, 1, 1));
+  float k = hash3(i + vec3(1, 1, 1));
+  return mix(
+    mix(mix(a, b, f.x), mix(c, d, f.x), f.y),
+    mix(mix(e, g, f.x), mix(h, k, f.x), f.y),
+    f.z
+  );
+}
+
+// ── Smooth min ──
+float smin(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+// ── Distance to a line segment (capsule core) ──
+float sdSegment(vec3 p, vec3 a, vec3 b) {
+  vec3 ab = b - a;
+  float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+  return length(p - (a + ab * t));
+}
+
+// Parameter along segment [0,1]
+float segT(vec3 p, vec3 a, vec3 b) {
+  vec3 ab = b - a;
+  return clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+}
+
+// ─────────────────────────────────────────────
+// Triangle geometry
+// ─────────────────────────────────────────────
+const float TRI_SIDE = 2.2;
+const float BEAM_R = 0.2;
+const float Y_OFF = 0.28;
+
+const float TRI_H = 1.9052559; // TRI_SIDE * sqrt(3)/2
+const float HALF_SIDE = 1.1;
+const float V0_Z = 1.2701706;  // TRI_H * 2/3
+const float V12_Z = -0.6350853; // -TRI_H * 1/3
+
+// ─────────────────────────────────────────────
+// Scene rotation
+// ─────────────────────────────────────────────
+mat3 getSceneRot(float time) {
+  float rotAngle = time * u_rotationSpeed * 0.12;
+  return rotX(0.5) * rotY(rotAngle);
+}
+
+vec3 sceneRot(vec3 p, float time) {
+  return getSceneRot(time) * p;
+}
+
+// ─────────────────────────────────────────────
+// Penrose Triangle SDF
+//
+// Three beam segments with Y-offsets that create
+// an impossible-looking structure. The beams slope
+// in Y from +offset to -offset, so at each corner
+// the arriving beam is at a different Y level than
+// the departing beam -- creating the paradox.
+// ─────────────────────────────────────────────
+vec2 penroseSDF(vec3 p) {
+  vec3 v0 = vec3(0.0, 0.0, V0_Z);
+  vec3 v1 = vec3(-HALF_SIDE, 0.0, V12_Z);
+  vec3 v2 = vec3(HALF_SIDE, 0.0, V12_Z);
+
+  vec3 yU = vec3(0.0, Y_OFF, 0.0);
+  vec3 yD = vec3(0.0, -Y_OFF, 0.0);
+
+  // Three beams, each tilting in Y across the span
+  vec3 b0a = v0 + yU, b0b = v1 + yD;
+  vec3 b1a = v1 + yU, b1b = v2 + yD;
+  vec3 b2a = v2 + yU, b2b = v0 + yD;
+
+  float d0 = sdSegment(p, b0a, b0b) - BEAM_R;
+  float d1 = sdSegment(p, b1a, b1b) - BEAM_R;
+  float d2 = sdSegment(p, b2a, b2b) - BEAM_R;
+
+  // Corner join spheres
+  float cR = BEAM_R * 1.5;
+  float cv0 = length(p - v0) - cR;
+  float cv1 = length(p - v1) - cR;
+  float cv2 = length(p - v2) - cR;
+
+  float dMin = d0;
+  float id = 0.0;
+  if (d1 < dMin) { dMin = d1; id = 1.0; }
+  if (d2 < dMin) { dMin = d2; id = 2.0; }
+
+  float k = 0.08;
+  dMin = smin(dMin, cv0, k);
+  dMin = smin(dMin, cv1, k);
+  dMin = smin(dMin, cv2, k);
+
+  return vec2(dMin, id);
+}
+
+vec2 sceneSDF(vec3 p, float time) {
+  p = sceneRot(p, time);
+  return penroseSDF(p);
+}
+
+vec3 calcNormal(vec3 p, float time) {
+  vec2 e = vec2(0.001, 0.0);
+  return normalize(vec3(
+    sceneSDF(p + e.xyy, time).x - sceneSDF(p - e.xyy, time).x,
+    sceneSDF(p + e.yxy, time).x - sceneSDF(p - e.yxy, time).x,
+    sceneSDF(p + e.yyx, time).x - sceneSDF(p - e.yyx, time).x
+  ));
+}
+
+// ─────────────────────────────────────────────
+// Flow position along the 6-segment loop path
+// (fully unrolled for WebGL1 compatibility)
+// ─────────────────────────────────────────────
+vec3 pathPos(float phase) {
+  vec3 v0 = vec3(0.0, 0.0, V0_Z);
+  vec3 v1 = vec3(-HALF_SIDE, 0.0, V12_Z);
+  vec3 v2 = vec3(HALF_SIDE, 0.0, V12_Z);
+  vec3 yU = vec3(0.0, Y_OFF, 0.0);
+  vec3 yD = vec3(0.0, -Y_OFF, 0.0);
+
+  vec3 p0 = v0 + yU;
+  vec3 p1 = v1 + yD;
+  vec3 p2 = v1 + yU;
+  vec3 p3 = v2 + yD;
+  vec3 p4 = v2 + yU;
+  vec3 p5 = v0 + yD;
+
+  float l0 = length(p1 - p0);
+  float l1 = length(p2 - p1);
+  float l2 = length(p3 - p2);
+  float l3 = length(p4 - p3);
+  float l4 = length(p5 - p4);
+  float l5 = length(p0 - p5);
+  float total = l0 + l1 + l2 + l3 + l4 + l5;
+  float d = fract(phase) * total;
+
+  if (d < l0) return mix(p0, p1, d / l0);
+  d -= l0;
+  if (d < l1) return mix(p1, p2, d / l1);
+  d -= l1;
+  if (d < l2) return mix(p2, p3, d / l2);
+  d -= l2;
+  if (d < l3) return mix(p3, p4, d / l3);
+  d -= l3;
+  if (d < l4) return mix(p4, p5, d / l4);
+  d -= l4;
+  return mix(p5, p0, d / l5);
+}
+
+// ─────────────────────────────────────────────
+// Flow glow: distance-based glow from particles
+// on the loop path. Evaluated in rotated space.
+// ─────────────────────────────────────────────
+float flowGlow(vec3 rp, float time) {
+  float glow = 0.0;
+  float flowT = time * u_flowSpeed;
+
+  for (float n = 0.0; n < 12.0; n += 1.0) {
+    float phase = fract(flowT * 0.18 + n / 12.0);
+    vec3 pp = pathPos(phase);
+    float dist = length(rp - pp);
+
+    // Sharp bright core + wider halo
+    float core = exp(-dist * dist * 1200.0) * 2.5;
+    float halo = exp(-dist * dist * 60.0) * 0.5;
+
+    // Slight pulsing per particle
+    float pulse = 0.6 + 0.4 * sin(n * 3.17 + flowT * 2.0);
+    glow += (core + halo) * pulse;
+  }
+  return glow;
+}
+
+// ─────────────────────────────────────────────
+// Ambient occlusion
+// ─────────────────────────────────────────────
+float calcAO(vec3 p, vec3 n, float time) {
+  float ao = 1.0;
+  for (int i = 1; i <= 4; i++) {
+    float fi = float(i);
+    float d = 0.05 * fi;
+    float sd = sceneSDF(p + n * d, time).x;
+    ao -= (d - sd) * (0.25 / fi);
+  }
+  return clamp(ao, 0.2, 1.0);
+}
+
+// ─────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────
+void main() {
+  vec2 uv = (gl_FragCoord.xy - u_res * 0.5) / min(u_res.x, u_res.y);
+  float t = u_time;
+
+  // Camera
+  vec3 ro = vec3(0.0, 0.0, 5.8);
+  vec3 rd = normalize(vec3(uv, -2.0));
+
+  // ── Background ──
+  float bgR = length(uv);
+  vec3 bgCol = vec3(0.018, 0.016, 0.025) * (1.0 - bgR * 0.4);
+  // Very subtle radial gradient, slightly blue center
+  bgCol += vec3(0.008, 0.008, 0.018) * exp(-bgR * bgR * 2.0);
+
+  // ── Raymarching ──
+  float totalDist = 0.0;
+  float minDist = 100.0;
+  vec2 hit = vec2(100.0, -1.0);
+  bool didHit = false;
+
+  for (int i = 0; i < 96; i++) {
+    vec3 p = ro + rd * totalDist;
+    hit = sceneSDF(p, t);
+    float d = hit.x;
+    minDist = min(minDist, d);
+    if (d < 0.0008) { didHit = true; break; }
+    if (totalDist > 14.0) break;
+    totalDist += d;
+  }
+
+  vec3 col = bgCol;
+
+  if (didHit) {
+    vec3 p = ro + rd * totalDist;
+    vec3 n = calcNormal(p, t);
+    vec3 viewDir = normalize(ro - p);
+    float beamId = hit.y;
+
+    // ── Transform hit point to object space for flow calc ──
+    vec3 rp = sceneRot(p, t);
+
+    // ── Surface material: dark charcoal to blue-grey ──
+    vec3 baseColor = vec3(0.105, 0.105, 0.145);
+    // Per-beam hue shift
+    baseColor += vec3(0.008, 0.004, -0.008) * beamId;
+    // Subtle surface detail
+    float tex = noise3(rp * 15.0) * 0.012;
+    baseColor += tex;
+
+    // ── Lighting ──
+    // Key: warm from upper right
+    vec3 L1 = normalize(vec3(0.6, 0.85, 0.4));
+    float diff1 = max(dot(n, L1), 0.0);
+    vec3 H1 = normalize(L1 + viewDir);
+    float spec1 = pow(max(dot(n, H1), 0.0), 80.0);
+
+    // Fill: cool blue from lower left
+    vec3 L2 = normalize(vec3(-0.5, -0.3, 0.6));
+    float diff2 = max(dot(n, L2), 0.0);
+
+    // Rim: teal from behind
+    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 3.5);
+
+    // Top fill for 3D read
+    vec3 L3 = normalize(vec3(0.0, 1.0, 0.2));
+    float diff3 = max(dot(n, L3), 0.0);
+
+    // Assemble
+    vec3 ambient = vec3(0.045, 0.045, 0.065);
+    col = baseColor * ambient;
+    col += baseColor * vec3(0.85, 0.70, 0.50) * diff1 * 1.0;
+    col += baseColor * vec3(0.30, 0.40, 0.60) * diff2 * 0.5;
+    col += baseColor * vec3(0.25, 0.30, 0.35) * diff3 * 0.4;
+    col += vec3(0.50, 0.42, 0.30) * spec1 * 0.4;
+    col += vec3(0.25, 0.50, 0.55) * fresnel * 0.35;
+
+    // ── Edge highlights ──
+    // Enhanced edge detection: bright lines where surfaces meet
+    // Use the curvature estimate from normal variation
+    float edgeFactor = fresnel;
+    col += vec3(0.35, 0.50, 0.70) * edgeFactor * 0.15;
+
+    // ── Flow particles illuminating surface ──
+    float flow = flowGlow(rp, t);
+    vec3 flowCol = mix(
+      vec3(0.80, 0.60, 0.40),
+      vec3(1.0, 0.95, 0.85),
+      clamp(flow * 0.5, 0.0, 1.0)
+    );
+    col += flowCol * flow * 0.18;
+
+    // ── AO ──
+    float ao = calcAO(p, n, t);
+    col *= ao;
+
+    // ── Fog ──
+    col = mix(col, bgCol, 1.0 - exp(-totalDist * 0.02));
+  }
+
+  // ── Proximity glow for near-misses ──
+  {
+    float prox = exp(-minDist * 4.0);
+    col += vec3(0.06, 0.04, 0.10) * prox * 0.3;
+  }
+
+  // ── Volumetric flow (lighter: fewer samples, only near structure) ──
+  {
+    mat3 sRot = getSceneRot(t);
+    float near = max(totalDist - 3.0, 0.5);
+    float far = didHit ? totalDist - 0.05 : min(totalDist + 3.0, 12.0);
+    if (far > near) {
+      float flowAccum = 0.0;
+      float stepSz = (far - near) / 16.0;
+      for (int i = 0; i < 16; i++) {
+        float sd = near + (float(i) + 0.5) * stepSz;
+        vec3 sp = sRot * (ro + rd * sd);
+        float fg = flowGlow(sp, t);
+        flowAccum += fg * stepSz * 0.08;
+      }
+      vec3 flowCol = vec3(0.80, 0.60, 0.42);
+      col += flowCol * flowAccum;
+      col += flowCol * flowAccum * flowAccum * 2.0;
+    }
+  }
+
+  // ── Ambient structure glow (soft light around the object) ──
+  if (!didHit && minDist < 2.0) {
+    float structGlow = exp(-minDist * minDist * 1.5) * 0.06;
+    col += vec3(0.20, 0.15, 0.30) * structGlow;
+  }
+
+  // ── Post-processing ──
+  float vig = 1.0 - dot(uv, uv) * 0.3;
+  col *= max(vig, 0.0);
+
+  // Tone map
+  col *= 1.5;
+  col = col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14);
+
+  // Slight shadow color push
+  col = pow(max(col, 0.0), vec3(0.97, 0.99, 1.04));
+
+  // Floor level
+  col = max(col, vec3(0.004, 0.004, 0.006));
+
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}
+`;
+
+  function compile(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertSrc));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragSrc));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error('Program link error:', gl.getProgramInfoLog(prog));
+  }
+  gl.useProgram(prog);
+
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  var aPos = gl.getAttribLocation(prog, 'a_pos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  var uTime = gl.getUniformLocation(prog, 'u_time');
+  var uRes = gl.getUniformLocation(prog, 'u_res');
+  var uRotationSpeed = gl.getUniformLocation(prog, 'u_rotationSpeed');
+  var uFlowSpeed = gl.getUniformLocation(prog, 'u_flowSpeed');
+
+  var rotationSpeedVal = 0.3;
+  var flowSpeedVal = 0.5;
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+  var running = true;
+
+  function resize() {
+    var w = Math.round(canvas.clientWidth * dpr);
+    var h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+
+  function render(now) {
+    if (!running) { requestAnimationFrame(render); return; }
+    resize();
+    gl.uniform1f(uTime, prefersReduced ? 0.0 : now * 0.001);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uRotationSpeed, rotationSpeedVal);
+    gl.uniform1f(uFlowSpeed, flowSpeedVal);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      running = false;
+    } else {
+      running = true;
+      requestAnimationFrame(render);
+    }
+  });
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'ROTATION_SPEED': rotationSpeedVal = e.data.value; break;
+        case 'FLOW_SPEED': flowSpeedVal = e.data.value; break;
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chaotic Pendulum</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .label {
+    position: fixed; top: 20px; left: 24px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(200, 149, 108, 0.5); z-index: 10; pointer-events: none; user-select: none;
+  }
+</style>
+</head>
+<body>
+<div class="label">Chaotic Pendulum</div>
+<canvas id="canvas"></canvas>
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var urlParams = new URLSearchParams(window.location.search);
+  var pixelScale = parseFloat(urlParams.get('p')) || 1;
+
+  // ── Tunable params ──
+  var TRACE_FADE = 1.0;
+  var ENERGY = 1.0;
+
+  // ── Physics constants ──
+  var g = 9.81;
+  var m1 = 1.0, m2 = 1.0;
+  var L1, L2;
+
+  // ── State: [theta1, omega1, theta2, omega2] ──
+  var state = [0, 0, 0, 0];
+  var prevTipX = null, prevTipY = null;
+
+  // ── Canvas state ──
+  var dpr, W, H, centerX, centerY;
+  var running = true;
+  var lastTime = 0;
+
+  // ── Trace canvas (accumulates the drawing) ──
+  var traceCanvas = document.createElement('canvas');
+  var traceCtx = traceCanvas.getContext('2d');
+
+  // ── Reset / cycle tracking ──
+  var cycleStart = 0;
+  var cycleDuration = 17000; // ms per cycle
+  var fadePhase = 'none'; // 'none' | 'out' | 'in'
+  var fadeAlpha = 1.0;
+  var fadeDuration = 800; // ms for fade transitions
+  var fadeTimer = 0;
+  var frameCount = 0;
+
+  // ── Velocity tracking for color ──
+  var maxVelSeen = 1.0;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    traceCanvas.width = W * dpr;
+    traceCanvas.height = H * dpr;
+    traceCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    centerX = W * 0.5;
+    centerY = H * 0.42;
+
+    var scale = Math.min(W, H);
+    L1 = scale * 0.2;
+    L2 = scale * 0.2;
+
+    // Clear trace on resize
+    traceCtx.fillStyle = '#0a0a0a';
+    traceCtx.fillRect(0, 0, W, H);
+
+    prevTipX = null;
+    prevTipY = null;
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  function initPendulum() {
+    var baseTheta1 = Math.PI * 0.8 * ENERGY;
+    var baseTheta2 = Math.PI * 0.6 * ENERGY;
+    var perturbation = (Math.random() - 0.5) * 0.1;
+
+    state[0] = baseTheta1 + perturbation;
+    state[1] = 0;
+    state[2] = baseTheta2 + (Math.random() - 0.5) * 0.15;
+    state[3] = 0;
+
+    prevTipX = null;
+    prevTipY = null;
+    maxVelSeen = 1.0;
+  }
+
+  initPendulum();
+
+  // ── Double pendulum derivatives ──
+  // state = [theta1, omega1, theta2, omega2]
+  function derivatives(s) {
+    var t1 = s[0], w1 = s[1], t2 = s[2], w2 = s[3];
+    var dt = t1 - t2;
+    var sinDt = Math.sin(dt);
+    var cosDt = Math.cos(dt);
+    var sinT1 = Math.sin(t1);
+    var sinT2 = Math.sin(t2);
+
+    var denom1 = (2 * m1 + m2 - m2 * Math.cos(2 * t1 - 2 * t2));
+    var denom2 = denom1; // same denominator structure
+
+    var alpha1 = (-g * (2 * m1 + m2) * sinT1
+                  - m2 * g * Math.sin(t1 - 2 * t2)
+                  - 2 * sinDt * m2 * (w2 * w2 * L2 + w1 * w1 * L1 * cosDt))
+                 / (L1 * denom1);
+
+    var alpha2 = (2 * sinDt * (w1 * w1 * L1 * (m1 + m2)
+                  + g * (m1 + m2) * Math.cos(t1)
+                  + w2 * w2 * L2 * m2 * cosDt))
+                 / (L2 * denom2);
+
+    return [w1, alpha1, w2, alpha2];
+  }
+
+  // ── RK4 integration step ──
+  function rk4Step(s, dt) {
+    var k1 = derivatives(s);
+    var s2 = [
+      s[0] + k1[0] * dt * 0.5,
+      s[1] + k1[1] * dt * 0.5,
+      s[2] + k1[2] * dt * 0.5,
+      s[3] + k1[3] * dt * 0.5
+    ];
+    var k2 = derivatives(s2);
+    var s3 = [
+      s[0] + k2[0] * dt * 0.5,
+      s[1] + k2[1] * dt * 0.5,
+      s[2] + k2[2] * dt * 0.5,
+      s[3] + k2[3] * dt * 0.5
+    ];
+    var k3 = derivatives(s3);
+    var s4 = [
+      s[0] + k3[0] * dt,
+      s[1] + k3[1] * dt,
+      s[2] + k3[2] * dt,
+      s[3] + k3[3] * dt
+    ];
+    var k4 = derivatives(s4);
+
+    state[0] = s[0] + (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]) * dt / 6;
+    state[1] = s[1] + (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]) * dt / 6;
+    state[2] = s[2] + (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]) * dt / 6;
+    state[3] = s[3] + (k1[3] + 2 * k2[3] + 2 * k3[3] + k4[3]) * dt / 6;
+  }
+
+  // ── Tip position from state ──
+  function getTipPosition() {
+    var x1 = centerX + L1 * Math.sin(state[0]);
+    var y1 = centerY + L1 * Math.cos(state[0]);
+    var x2 = x1 + L2 * Math.sin(state[2]);
+    var y2 = y1 + L2 * Math.cos(state[2]);
+    return { x1: x1, y1: y1, x2: x2, y2: y2 };
+  }
+
+  // ── Velocity magnitude of the tip ──
+  function getTipVelocity() {
+    var w1 = state[1], w2 = state[3];
+    var t1 = state[0], t2 = state[2];
+
+    var vx = L1 * w1 * Math.cos(t1) + L2 * w2 * Math.cos(t2);
+    var vy = -L1 * w1 * Math.sin(t1) - L2 * w2 * Math.sin(t2);
+    return Math.sqrt(vx * vx + vy * vy);
+  }
+
+  // ── Velocity-based color ──
+  // slow = cool blue-violet, medium = teal, fast = warm amber, fastest = bright white
+  function velocityColor(vel) {
+    // Normalize velocity
+    if (vel > maxVelSeen) maxVelSeen = vel + (vel - maxVelSeen) * 0.1;
+    var t = Math.min(vel / (maxVelSeen * 0.7), 1.0);
+
+    var r, g, b, a;
+
+    if (t < 0.25) {
+      // Blue-violet to teal
+      var f = t / 0.25;
+      r = 80 + (64 - 80) * f;
+      g = 96 + (128 - 96) * f;
+      b = 160 + (128 - 160) * f;
+    } else if (t < 0.55) {
+      // Teal to amber
+      var f = (t - 0.25) / 0.30;
+      r = 64 + (200 - 64) * f;
+      g = 128 + (149 - 128) * f;
+      b = 128 + (108 - 128) * f;
+    } else if (t < 0.85) {
+      // Amber to bright warm white
+      var f = (t - 0.55) / 0.30;
+      r = 200 + (224 - 200) * f;
+      g = 149 + (220 - 149) * f;
+      b = 108 + (208 - 108) * f;
+    } else {
+      // Bright white
+      var f = (t - 0.85) / 0.15;
+      r = 224 + (240 - 224) * f;
+      g = 220 + (236 - 220) * f;
+      b = 208 + (224 - 208) * f;
+    }
+
+    // Higher alpha at higher velocities for more contrast
+    a = 0.5 + t * 0.4;
+
+    return { r: Math.round(r), g: Math.round(g), b: Math.round(b), a: a };
+  }
+
+  // ── Draw pendulum arms (very faint) ──
+  function drawArms(pos) {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(pos.x1, pos.y1);
+    ctx.lineTo(pos.x2, pos.y2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Joint dots
+    ctx.beginPath();
+    ctx.arc(pos.x1, pos.y1, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(pos.x2, pos.y2, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.fill();
+  }
+
+  // ── Draw center anchor ──
+  function drawAnchor() {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200, 149, 108, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200, 149, 108, 0.15)';
+    ctx.fill();
+  }
+
+  // ── Draw tip glow ──
+  function drawTipGlow(x, y, col) {
+    var glowRadius = 20;
+    var glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+    glow.addColorStop(0, 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.35)');
+    glow.addColorStop(0.3, 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.1)');
+    glow.addColorStop(1, 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0)');
+    ctx.beginPath();
+    ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // Core bright point
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(' + Math.min(255, col.r + 30) + ',' + Math.min(255, col.g + 30) + ',' + Math.min(255, col.b + 20) + ', 0.9)';
+    ctx.fill();
+  }
+
+  // ── Main animation ──
+  var physicsDt = 1 / 60;
+  var subSteps = 6;
+  var subDt = physicsDt / subSteps;
+  var fadeEveryN = Math.round(3 / TRACE_FADE); // frames between fade overlays
+
+  function updateFadeRate() {
+    fadeEveryN = Math.max(1, Math.round(3 / TRACE_FADE));
+  }
+
+  function animate(timestamp) {
+    if (!running) {
+      requestAnimationFrame(animate);
+      return;
+    }
+
+    if (prefersReduced) {
+      // Static frame: just draw initial position
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, W, H);
+      var pos = getTipPosition();
+      drawAnchor();
+      drawArms(pos);
+      return;
+    }
+
+    if (lastTime === 0) {
+      lastTime = timestamp;
+      cycleStart = timestamp;
+    }
+
+    var elapsed = timestamp - lastTime;
+    lastTime = timestamp;
+
+    // Clamp large frame gaps (tab unfocus, etc.)
+    if (elapsed > 100) elapsed = 16;
+
+    var cycleElapsed = timestamp - cycleStart;
+
+    // ── Cycle fade logic ──
+    if (fadePhase === 'none' && cycleElapsed > cycleDuration) {
+      fadePhase = 'out';
+      fadeTimer = timestamp;
+    }
+
+    if (fadePhase === 'out') {
+      var p = (timestamp - fadeTimer) / fadeDuration;
+      fadeAlpha = 1.0 - Math.min(p, 1.0);
+      if (p >= 1.0) {
+        // Reset pendulum
+        initPendulum();
+        // Clear trace canvas
+        traceCtx.fillStyle = '#0a0a0a';
+        traceCtx.fillRect(0, 0, W, H);
+        fadePhase = 'in';
+        fadeTimer = timestamp;
+        cycleStart = timestamp;
+        frameCount = 0;
+      }
+    }
+
+    if (fadePhase === 'in') {
+      var p = (timestamp - fadeTimer) / fadeDuration;
+      fadeAlpha = Math.min(p, 1.0);
+      if (p >= 1.0) {
+        fadeAlpha = 1.0;
+        fadePhase = 'none';
+      }
+    }
+
+    // ── Physics sub-steps ──
+    for (var i = 0; i < subSteps; i++) {
+      rk4Step([state[0], state[1], state[2], state[3]], subDt);
+    }
+
+    var pos = getTipPosition();
+    var vel = getTipVelocity();
+    var col = velocityColor(vel);
+
+    // ── Draw trace segment on trace canvas ──
+    if (prevTipX !== null && prevTipY !== null) {
+      // Glow pass (wider, softer)
+      traceCtx.beginPath();
+      traceCtx.moveTo(prevTipX, prevTipY);
+      traceCtx.lineTo(pos.x2, pos.y2);
+      traceCtx.strokeStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + (col.a * 0.2) + ')';
+      traceCtx.lineWidth = 4;
+      traceCtx.lineCap = 'round';
+      traceCtx.stroke();
+
+      // Crisp pass
+      traceCtx.beginPath();
+      traceCtx.moveTo(prevTipX, prevTipY);
+      traceCtx.lineTo(pos.x2, pos.y2);
+      traceCtx.strokeStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + col.a + ')';
+      traceCtx.lineWidth = 1.5;
+      traceCtx.lineCap = 'round';
+      traceCtx.stroke();
+    }
+
+    prevTipX = pos.x2;
+    prevTipY = pos.y2;
+
+    // ── Fade old traces ──
+    frameCount++;
+    if (frameCount % fadeEveryN === 0) {
+      traceCtx.fillStyle = 'rgba(10, 10, 10, 0.008)';
+      traceCtx.fillRect(0, 0, W, H);
+    }
+
+    // ── Composite to main canvas ──
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw trace layer with fade alpha
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(traceCanvas, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.restore();
+
+    // ── Draw pendulum structure (on main canvas, not trace) ──
+    ctx.globalAlpha = fadeAlpha;
+    drawAnchor();
+    drawArms(pos);
+    drawTipGlow(pos.x2, pos.y2, col);
+    ctx.globalAlpha = 1.0;
+
+    requestAnimationFrame(animate);
+  }
+
+  // ── Initial fill ──
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+  traceCtx.fillStyle = '#0a0a0a';
+  traceCtx.fillRect(0, 0, W, H);
+
+  requestAnimationFrame(animate);
+
+  // ── Visibility pause ──
+  document.addEventListener('visibilitychange', function() {
+    running = !document.hidden;
+    if (running) lastTime = 0;
+  });
+
+  // ── PostMessage listener for parameter updates ──
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'param') {
+      switch (e.data.name) {
+        case 'TRACE_FADE':
+          TRACE_FADE = e.data.value;
+          updateFadeRate();
+          break;
+        case 'ENERGY':
+          ENERGY = e.data.value;
+          break;
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

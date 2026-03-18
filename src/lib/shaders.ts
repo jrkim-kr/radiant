@@ -106,6 +106,18 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
+		id: 'chaotic-pendulum',
+		file: 'chaotic-pendulum.html',
+		title: 'Chaotic Pendulum',
+		desc: 'Double pendulum with RK4 physics, tracing deterministic chaos colored by velocity.',
+		tags: ['object', 'physics'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'TRACE_FADE', label: 'Trace Fade', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'ENERGY', label: 'Energy', min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
 		id: 'phyllotaxis',
 		file: 'phyllotaxis.html',
 		title: 'Phyllotaxis Spiral',
@@ -875,7 +887,7 @@ export const shaders: Shader[] = [
 		file: 'chain-reaction.html',
 		title: 'Chain Reaction',
 		desc: 'Nuclear fission-inspired exponential particle cascade with shockwave rings.',
-		inspiration: 'Cillian Murphy',
+		inspiration: 'Robert Downey Jr.',
 		tags: ['object', 'particles', 'physics'],
 		technique: 'canvas-2d',
 		params: [
@@ -1183,6 +1195,71 @@ export const shaders: Shader[] = [
 			{ name: 'FLOCK_SIZE', label: 'Flock Size', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
 			{ name: 'COHESION', label: 'Cohesion', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
 			{ name: 'PALETTE', label: 'Twilight', min: 0.0, max: 1.0, step: 1.0, default: 1.0 }
+		]
+	},
+	{
+		id: 'tesseract-shadow',
+		file: 'tesseract-shadow.html',
+		title: 'Tesseract Shadow',
+		desc: '4D hypercube projected into 2D with depth-faded wireframe, axis-mapped colors, and rotation trails.',
+		inspiration: 'Benedict Cumberbatch',
+		tags: ['object', 'geometric'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.05, max: 1.0, step: 0.05, default: 0.3 },
+			{ name: 'PROJECTION_DEPTH', label: 'Projection Depth', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'moire-interference',
+		file: 'moire-interference.html',
+		title: 'Moiré Interference',
+		desc: 'Overlapping concentric ring patterns creating hypnotic emergent moiré interference in blue-violet and teal.',
+		inspiration: 'Benedict Cumberbatch',
+		tags: ['fill', 'geometric'],
+		technique: 'webgl',
+		params: [
+			{ name: 'RING_DENSITY', label: 'Ring Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'DRIFT_SPEED', label: 'Drift Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.5 }
+		]
+	},
+	{
+		id: 'strange-loop',
+		file: 'strange-loop.html',
+		title: 'Strange Loop',
+		desc: 'Impossible Penrose-like geometry rendered as a continuously flowing raymarched surface with paradoxical depth.',
+		inspiration: 'Benedict Cumberbatch',
+		tags: ['object', 'geometric'],
+		technique: 'webgl',
+		params: [
+			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.05, max: 1.0, step: 0.05, default: 0.3 },
+			{ name: 'FLOW_SPEED', label: 'Flow Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.5 }
+		]
+	},
+	{
+		id: 'phase-transition',
+		file: 'phase-transition.html',
+		title: 'Phase Transition',
+		desc: 'Particles oscillating between crystalline lattice order and chaotic turbulence with a traveling phase wavefront.',
+		inspiration: 'Benedict Cumberbatch',
+		tags: ['fill', 'particles', 'physics'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'WAVE_SPEED', label: 'Wave Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.5 },
+			{ name: 'PARTICLE_DENSITY', label: 'Particle Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+		]
+	},
+	{
+		id: 'chaotic-pendulum',
+		file: 'chaotic-pendulum.html',
+		title: 'Chaotic Pendulum',
+		desc: 'Double pendulum traces accumulating into beautiful velocity-colored chaos curves on a dark canvas.',
+		inspiration: 'Benedict Cumberbatch',
+		tags: ['object', 'physics'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'TRACE_FADE', label: 'Trace Fade', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'ENERGY', label: 'Energy', min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
 		]
 	}
 ];
