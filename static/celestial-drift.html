@@ -55,7 +55,7 @@
     '#define PI 3.14159265359',
     '#define TAU 6.28318530718',
     '#define NUM_BODIES 7',
-    '#define TRAIL_STEPS 160',
+    '#define TRAIL_STEPS 48',
     '// NUM_BG_STARS removed — grid-based starfield is O(1)',
     '',
     '// ── Hash functions ──',
@@ -250,10 +250,12 @@
     '    float bRad = bodyRadius(b);',
     '    float fi = float(b);',
     '',
-    '    // Precompute orbit params once per body (not per trail step)',
+    '    // Precompute orbit params + constant trig once per body',
     '    vec4 op = orbitParams(b);',
     '    float bA = op.x, bE = op.y, bSpd = op.z, bPh = op.w;',
     '    float bTilt = orbitTilt(b);',
+    '    float bCT = cos(bTilt), bST = sin(bTilt);',
+    '    float bSqrt1mE2 = sqrt(1.0 - bE * bE);',
     '    float maxOrbitR = bA * (1.0 + bE) + bRad * 2.0;',
     '',
     '    // Quick check: skip body entirely if pixel is far from orbit region',
@@ -270,12 +272,11 @@
     '',
     '        // Inline bodyPosition with precomputed params',
     '        float M = bSpd * pastTime * u_orbitSpeed + bPh;',
-    '        float E = M; E = M + bE * sin(E); E = M + bE * sin(E); E = M + bE * sin(E);',
+    '        float E = M; E = M + bE * sin(E); E = M + bE * sin(E);',
     '        float cosE = cos(E), sinE = sin(E);',
     '        float px = bA * (cosE - bE);',
-    '        float py = bA * sqrt(1.0 - bE * bE) * sinE;',
-    '        float ct = cos(bTilt), st = sin(bTilt);',
-    '        vec2 pos = vec2(px * ct - py * st, px * st + py * ct);',
+    '        float py = bA * bSqrt1mE2 * sinE;',
+    '        vec2 pos = vec2(px * bCT - py * bST, px * bST + py * bCT);',
     '',
     '        vec2 delta = uv - pos;',
     '        float d2 = dot(delta, delta);',
@@ -348,7 +349,7 @@
   var trailDensityVal = 1.0;
   var orbitSpeedVal = 1.0;
 
-  var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale * 0.5;
 
   function resize() {
     var w = Math.round(canvas.clientWidth * dpr);
