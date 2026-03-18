@@ -276,19 +276,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'golden-throne',
-		file: 'golden-throne.html',
-		title: 'Golden Throne',
-		desc: 'Sacred geometry mandala with golden ratio spirals and counter-rotating layers.',
-		inspiration: 'Beyoncé',
-		tags: ['object', 'geometric'],
-		technique: 'webgl',
-		params: [
-			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.0, max: 1.0, step: 0.05, default: 0.3 },
-			{ name: 'COMPLEXITY', label: 'Complexity', min: 2, max: 8, step: 1, default: 5 }
-		]
-	},
-	{
 		id: 'gilt-mosaic',
 		file: 'gilt-mosaic.html',
 		title: 'Gilt Mosaic',
@@ -297,8 +284,9 @@ export const shaders: Shader[] = [
 		tags: ['fill', 'geometric'],
 		technique: 'webgl',
 		params: [
-			{ name: 'LIGHT_SPEED', label: 'Light Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.4 },
-			{ name: 'TILE_SCALE', label: 'Tile Scale', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+			{ name: 'ANIM_MODE', label: 'Animation', min: 0.0, max: 1.0, step: 0.05, default: 1.0 },
+			{ name: 'TILE_SCALE', label: 'Tile Scale', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'LIGHT_SPEED', label: 'Speed', min: 0.1, max: 1.5, step: 0.1, default: 0.4 }
 		]
 	},
 	{
@@ -324,7 +312,8 @@ export const shaders: Shader[] = [
 		technique: 'webgl',
 		params: [
 			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.05, max: 1.0, step: 0.05, default: 0.3 },
-			{ name: 'PATTERN_COMPLEXITY', label: 'Complexity', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
+			{ name: 'PATTERN_COMPLEXITY', label: 'Complexity', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'PATTERN', label: 'Pattern', min: 0.0, max: 1.0, step: 0.05, default: 0.0 }
 		]
 	},
 	{
@@ -1066,7 +1055,7 @@ export const shaders: Shader[] = [
 		file: 'vinyl-grooves.html',
 		title: 'Vinyl Grooves',
 		desc: 'Spinning vinyl record with visible grooves, tonearm, and needle spark.',
-		inspiration: 'Austin Butler',
+		inspiration: 'Dolly Parton',
 		tags: ['object', 'geometric'],
 		technique: 'webgl',
 		params: [
@@ -1124,6 +1113,19 @@ export const shaders: Shader[] = [
 		params: [
 			{ name: 'INTENSITY', label: 'Intensity', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
 			{ name: 'WAVE_SPEED', label: 'Wave Speed', min: 0.3, max: 2.0, step: 0.1, default: 0.8 }
+		]
+	},
+	{
+		id: 'ink-calligraphy',
+		file: 'proposal-anne-5.html',
+		title: 'Ink Calligraphy',
+		desc: 'Abstract gestural ink strokes with organic diffusion on textured paper and luminous gold leaf highlights.',
+		inspiration: 'Anne Hathaway',
+		tags: ['fill', 'organic'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'STROKE_SPEED', label: 'Stroke Speed', min: 0.3, max: 2.0, step: 0.1, default: 1.0 },
+			{ name: 'INK_DENSITY', label: 'Ink Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0 }
 		]
 	}
 ];

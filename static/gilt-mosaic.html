@@ -51,6 +51,7 @@
     'uniform vec2 u_res;',
     'uniform float u_lightSpeed;',
     'uniform float u_tileScale;',
+    'uniform float u_animMode;',
     '',
     '#define PI 3.14159265359',
     '#define TAU 6.28318530718',
@@ -121,6 +122,18 @@
     '  return n1 * 0.6 + n2 * 0.4;',
     '}',
     '',
+    '// ── Wave flip: compute flip amount for a tile ──',
+    'float waveFlip(vec2 tileCenter, float t, float aspect) {',
+    '  // Wave sweeps left to right, repeating every ~3 seconds',
+    '  float waveX = fract(t * 0.35) * (aspect + 1.0) - 0.5;',
+    '  // Per-tile random offset for organic stagger',
+    '  float rowJitter = hash(vec2(0.0, tileCenter.y * 97.3)) * 0.08;',
+    '  float dist = tileCenter.x - waveX + rowJitter;',
+    '  // Bell curve centered on wave front — tiles flip as the wave passes',
+    '  float flipAmount = exp(-dist * dist * 12.0);',
+    '  return flipAmount;',
+    '}',
+    '',
     'void main() {',
     '  vec2 uv = gl_FragCoord.xy / u_res;',
     '  vec2 aspect = vec2(u_res.x / u_res.y, 1.0);',
@@ -150,6 +163,26 @@
     '    (noise(f * 12.0 + id * 5.3) - 0.5) * 0.12,',
     '    0.0',
     '  ));',
+    '',
+    '  // ── Wave flip animation ──',
+    '  // Compute tile center in world-space for wave distance',
+    '  vec2 tileCenter = (id + 0.5) / scale;',
+    '  float flipAmt = waveFlip(tileCenter, t, aspect.x) * u_animMode;',
+    '',
+    '  // Flip rotates the tile normal around the Y axis',
+    '  // flipAngle goes 0 -> PI -> 0 as the wave passes (full flip)',
+    '  float flipAngle = flipAmt * PI;',
+    '  float cosFlip = cos(flipAngle);',
+    '  float sinFlip = sin(flipAngle);',
+    '',
+    '  // Rotate normal around Y axis: (nx*cos + nz*sin, ny, -nx*sin + nz*cos)',
+    '  vec3 flippedN = vec3(',
+    '    N.x * cosFlip + N.z * sinFlip,',
+    '    N.y,',
+    '    -N.x * sinFlip + N.z * cosFlip',
+    '  );',
+    '  // Blend between original normal and flipped normal based on animMode',
+    '  N = normalize(mix(N, flippedN, u_animMode));',
     '',
     '  // ── Moving light sources ──',
     '  // Light 1: main overhead sweep (slow figure-eight)',
@@ -207,13 +240,20 @@
     '  specTotal *= breathe;',
     '  diffTotal *= breathe;',
     '',
+    '  // ── Wave flip: golden flash on back side of flipping tiles ──',
+    '  // When flipAmt is high, the tile is mid-flip — show a bright flash',
+    '  float flipFlash = smoothstep(0.4, 0.85, flipAmt) * smoothstep(1.0, 0.85, flipAmt);',
+    '  float flipGlow = flipAmt * flipAmt * 0.6;',
+    '',
     '  // ── Per-tile shimmer (individual tiles catch light at random moments) ──',
     '  float shimmerPhase = tileHash * TAU + t * (0.8 + tileHash2 * 1.5);',
     '  float shimmer = pow(max(sin(shimmerPhase), 0.0), 16.0);',
     '  // Second shimmer layer for more organic feel',
     '  float shimmer2Phase = tileHash3 * TAU + t * (0.5 + tileHash * 0.7) + 2.0;',
     '  float shimmer2 = pow(max(sin(shimmer2Phase), 0.0), 24.0);',
-    '  float shimmerTotal = shimmer * 0.6 + shimmer2 * 0.4;',
+    '  // Blend shimmer: reduce original shimmer when in wave flip mode',
+    '  float shimmerBlend = 1.0 - u_animMode;',
+    '  float shimmerTotal = (shimmer * 0.6 + shimmer2 * 0.4) * shimmerBlend;',
     '',
     '  // ── Gold color palette ──',
     '  vec3 groutColor = vec3(0.03, 0.02, 0.01);',
@@ -246,6 +286,12 @@
     '  // Shimmer flashes (brief bright catches)',
     '  vec3 shimmerColor = mix(flashGold, hotGold, shimmerTotal);',
     '  tileColor += shimmerColor * shimmerTotal * 0.7;',
+    '',
+    '  // ── Wave flip flash: bright golden burst at peak of flip ──',
+    '  vec3 flipFlashColor = mix(flashGold, hotGold, flipFlash);',
+    '  tileColor += flipFlashColor * flipFlash * 1.8 * u_animMode;',
+    '  // Softer ambient glow from flipping tiles',
+    '  tileColor += brightGold * flipGlow * 0.5 * u_animMode;',
     '',
     '  // ── Micro-facet sparkle within tiles ──',
     '  // Small bright point when roughness noise aligns with light',
@@ -317,9 +363,11 @@
   var uRes = gl.getUniformLocation(prog, 'u_res');
   var uLightSpeed = gl.getUniformLocation(prog, 'u_lightSpeed');
   var uTileScale = gl.getUniformLocation(prog, 'u_tileScale');
+  var uAnimMode = gl.getUniformLocation(prog, 'u_animMode');
 
   var lightSpeedVal = 0.4;
   var tileScaleVal = 1.0;
+  var animModeVal = 1.0;
 
   var dpr = Math.min(window.devicePixelRatio || 1, 2) * pixelScale;
 
@@ -339,6 +387,7 @@
     gl.uniform2f(uRes, canvas.width, canvas.height);
     gl.uniform1f(uLightSpeed, lightSpeedVal);
     gl.uniform1f(uTileScale, tileScaleVal);
+    gl.uniform1f(uAnimMode, animModeVal);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     requestAnimationFrame(render);
   }
@@ -356,6 +405,7 @@
       switch (e.data.name) {
         case 'LIGHT_SPEED': lightSpeedVal = e.data.value; break;
         case 'TILE_SCALE': tileScaleVal = e.data.value; break;
+        case 'ANIM_MODE': animModeVal = e.data.value; break;
       }
     }
   });
