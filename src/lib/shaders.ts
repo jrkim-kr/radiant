@@ -883,19 +883,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'chain-reaction',
-		file: 'chain-reaction.html',
-		title: 'Chain Reaction',
-		desc: 'Nuclear fission-inspired exponential particle cascade with shockwave rings.',
-		inspiration: 'Robert Downey Jr.',
-		tags: ['object', 'particles', 'physics'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'REACTION_SPEED', label: 'Reaction Speed', min: 0.3, max: 3.0, step: 0.1, default: 1.0 },
-			{ name: 'SPLIT_GENERATIONS', label: 'Generations', min: 4, max: 9, step: 1, default: 7 }
-		]
-	},
-	{
 		id: 'bioluminescence',
 		file: 'bioluminescence.html',
 		title: 'Bioluminescence',
