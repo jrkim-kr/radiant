@@ -144,21 +144,21 @@ float segT(vec3 p, vec3 a, vec3 b) {
 // ─────────────────────────────────────────────
 // Triangle geometry
 // ─────────────────────────────────────────────
-const float TRI_SIDE = 2.2;
-const float BEAM_R = 0.18;
-const float Y_OFF = 0.28;
+const float TRI_SIDE = 3.2;
+const float BEAM_R = 0.26;
+const float Y_OFF = 0.4;
 
-const float TRI_H = 1.9052559; // TRI_SIDE * sqrt(3)/2
-const float HALF_SIDE = 1.1;
-const float V0_Z = 1.2701706;  // TRI_H * 2/3
-const float V12_Z = -0.6350853; // -TRI_H * 1/3
+const float TRI_H = 2.7712813; // TRI_SIDE * sqrt(3)/2
+const float HALF_SIDE = 1.6;
+const float V0_Z = 1.8475209;  // TRI_H * 2/3
+const float V12_Z = -0.9237604; // -TRI_H * 1/3
 
 // ─────────────────────────────────────────────
 // Scene rotation
 // ─────────────────────────────────────────────
 mat3 getSceneRot(float time) {
   float rotAngle = time * u_rotationSpeed * 0.12;
-  return rotX(0.5) * rotY(rotAngle);
+  return rotX(0.65) * rotY(rotAngle);
 }
 
 vec3 sceneRot(vec3 p, float time) {
@@ -191,11 +191,12 @@ vec2 penroseSDF(vec3 p) {
   float d1 = sdBoxBeam(p, b1a, b1b, BEAM_R, BEAM_R);
   float d2 = sdBoxBeam(p, b2a, b2b, BEAM_R, BEAM_R);
 
-  // Sharp min — clean beam intersections where they overlap
-  float dMin = min(d0, min(d1, d2));
+  // Subtle fusion at joints (very small k for just a hint of meld)
+  float k = 0.03;
+  float dMin = smin(d0, smin(d1, d2, k), k);
   float id = 0.0;
-  if (d1 <= dMin) id = 1.0;
-  if (d2 <= dMin) id = 2.0;
+  if (d1 < d0 && d1 < d2) id = 1.0;
+  if (d2 < d0 && d2 < d1) id = 2.0;
 
   return vec2(dMin, id);
 }
@@ -318,7 +319,7 @@ void main() {
   float t = u_time;
 
   // Camera
-  vec3 ro = vec3(0.0, 0.0, 5.8);
+  vec3 ro = vec3(0.0, 0.0, 7.2);
   vec3 rd = normalize(vec3(uv, -2.0));
 
   // ── Background ──
