@@ -1030,7 +1030,7 @@ export const shaders: Shader[] = [
 		file: 'thunder-sermon.html',
 		title: 'Thunder Sermon',
 		desc: 'Fractal lightning bolts with Lichtenberg branching and thunder shockwaves.',
-		inspiration: 'Denzel Washington',
+		inspiration: 'Jason Momoa',
 		tags: ['fill', 'physics'],
 		technique: 'webgl',
 		params: [
@@ -1219,8 +1219,10 @@ export const shaders: Shader[] = [
 		tags: ['object', 'geometric'],
 		technique: 'webgl',
 		params: [
-			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.05, max: 1.0, step: 0.05, default: 0.3 },
-			{ name: 'FLOW_SPEED', label: 'Flow Speed', min: 0.1, max: 1.5, step: 0.05, default: 0.5 }
+			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.0, max: 1.0, step: 0.05, default: 0.3 },
+			{ name: 'FLOW_SPEED', label: 'Flow Speed', min: 0.0, max: 1.5, step: 0.05, default: 0.5 },
+			{ name: 'TILT', label: 'Tilt', min: 0.0, max: 1.5, step: 0.05, default: 0.65 },
+			{ name: 'ZOOM', label: 'Zoom', min: 4.0, max: 12.0, step: 0.2, default: 7.2 }
 		]
 	},
 	{
