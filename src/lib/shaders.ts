@@ -740,19 +740,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'morning-fog',
-		file: 'morning-fog.html',
-		title: 'Morning Fog',
-		desc: 'Volumetric light shafts cutting through layered fog with illuminated dust motes.',
-		inspiration: 'Timothée Chalamet',
-		tags: ['fill', 'particles', 'noise'],
-		technique: 'webgl',
-		params: [
-			{ name: 'FOG_DENSITY', label: 'Fog Density', min: 0.2, max: 1.0, step: 0.05, default: 0.6 },
-			{ name: 'LIGHT_INTENSITY', label: 'Light Intensity', min: 0.3, max: 1.5, step: 0.05, default: 0.8 }
-		]
-	},
-	{
 		id: 'kaleidoscope-runway',
 		file: 'kaleidoscope-runway.html',
 		title: 'Kaleidoscope Runway',
