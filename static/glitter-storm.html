@@ -168,22 +168,23 @@
       var ny = st * sp;
       var nz = ct;
 
-      // Mouse: wind force pushes particles and spins them faster
+      // Mouse: gentle wind nudge — temporary, particles recover naturally
       if (mouseActive) {
         var mdx = mouseX * dpr - p.x;
         var mdy = mouseY * dpr - p.y;
         var mdist = Math.sqrt(mdx * mdx + mdy * mdy);
-        if (mdist > 1 && mdist < W * 0.4) {
-          var wind = (1 - mdist / (W * 0.4));
-          wind *= wind * 3.0;
-          // Push particles away from cursor
-          p.vx -= (mdx / mdist) * wind * 0.15;
-          p.vy -= (mdy / mdist) * wind * 0.15;
-          // Spin faster near cursor
-          p.dTheta += wind * 0.5 * (p.dTheta > 0 ? 1 : -1);
-          p.dPhi += wind * 0.3 * (p.dPhi > 0 ? 1 : -1);
+        if (mdist > 1 && mdist < W * 0.3) {
+          var wind = (1 - mdist / (W * 0.3));
+          wind *= wind * 0.8;
+          // Nudge particles away from cursor
+          p.vx -= (mdx / mdist) * wind * 0.04;
+          p.vy -= (mdy / mdist) * wind * 0.04;
         }
       }
+
+      // Dampen velocity back toward base drift
+      p.vx += (p.vx > 0 ? -1 : 1) * Math.min(Math.abs(p.vx) * 0.02, 0.01);
+      p.vy += (p.vy > 0 ? -1 : 1) * Math.min(Math.abs(p.vy) * 0.02, 0.01);
 
       // Specular: |dot(N, L)|  — mirrors on both sides of disc
       var smax = 0;
