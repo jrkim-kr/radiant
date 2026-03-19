@@ -9,11 +9,13 @@
 				<span class="date">March 19, 2026</span>
 			</div>
 			<ul>
-				<li>Mouse & touch interactivity for all 82 shaders — move, click, or drag to interact</li>
-				<li>Auto-detected interaction hints on detail pages</li>
-				<li>Moonlit Ripple shader rewritten — 3D perspective camera, physically-based waves with Fresnel reflection, adjustable wave intensity (calm lake to stormy ocean), and textured moon</li>
+				<li>Mouse & touch interactivity for all shaders — move, click, or drag to interact</li>
+				<li>New shaders: Synth Ribbon, Hologram Glitch, Erosion Channels, Golden Sediment, and more</li>
+				<li>Moonlit Ripple rewritten with 3D perspective, Fresnel water, and adjustable wave intensity</li>
+				<li>Eclipse Glow polished — asymmetric corona, softer diamond ring, cleaner particles</li>
 				<li>Gallery live mode toggle — opt-in to preview all visible shaders at once</li>
 				<li>Per-shader default color schemes</li>
+				<li>Performance improvements across many shaders</li>
 			</ul>
 		</div>
 		<div class="entry">

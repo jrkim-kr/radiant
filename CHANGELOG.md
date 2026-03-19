@@ -2,20 +2,46 @@
 
 ## 1.1.0 — 2026-03-19
 
-### Added
+### New Shaders
 
-- **Mouse & touch interactivity for all 82 shaders.** Every shader in the collection now responds to cursor movement, clicks, or drags. Interactions are designed to feel natural for each visual:
-  - **Particle systems** (Murmuration, Champagne Fizz, Luminous Silt, Glitter Storm, etc.) — attract, repel, or stir particles
-  - **Physics simulations** (Pendulum Wave, Kinetic Grid, Magnetic Sand, Resonant Strings) — pluck, push, or add force sources
-  - **Drawing** (Ink Calligraphy) — paint your own brush strokes with speed-based width variation
-  - **Fluid dynamics** (Lipstick Smear) — drag to smear the fluid
-  - **Reaction-diffusion** (Edge of Chaos) — click to inject chemical perturbations
-  - **3D/4D rotation** (Strange Attractor, Tesseract Shadow, Event Horizon) — drag to orbit the camera
-  - **Center-shift** (Vortex, Eclipse Glow, Vertigo, Kaleidoscope Runway, and many more) — move the focal point with your cursor
-  - **Light sources** (Velvet Spotlight, Sequin Wave, Glitter Storm) — cursor becomes an additional light
-  - **Splash/spawn** (Rain on Glass, Rain Umbrella, Digital Rain, Spark Chamber) — click to create bursts
-  - **Pattern cycling** (Woven Radiance, Vintage Static) — click to shift colors or trigger glitches
-- **Auto-detected interaction hints** on shader detail pages. A small label (e.g. "Drag to interact", "Click to interact") appears in the bottom-right corner of the preview area, detected at runtime by scanning for bound event listeners.
+- **Synth Ribbon** (Chappell Roan) — Flowing metallic ribbons twisting through 3D space with chrome reflections in hot pink and cyan (Canvas 2D)
+- **Hologram Glitch** (Daft Punk) — Abstract holographic texture with chromatic aberration, scanlines, and controlled glitch bursts (WebGL)
+- **Erosion Channels** — Fractal dendritic channel networks carving through warm sandstone terrain (WebGL)
+- **Golden Sediment** — Layered sedimentary strata with tectonic folding and crystalline sparkles (WebGL)
+
+### Shader Rewrites & Polish
+
+- **Moonlit Ripple** — Complete rewrite with 3D perspective camera, ray-plane water intersection, multi-directional waves with analytical normals, Fresnel-based reflection, textured moon with craters, and adjustable wave intensity (calm lake to stormy ocean)
+- **Eclipse Glow** — Removed floating rectangular artifacts, added asymmetric corona streamers, softened diamond ring bloom, fixed horizontal lens streak, improved FPS from ~35 to ~54
+
+### Interactivity
+
+- **Mouse & touch interactivity for all shaders.** Every shader now responds to cursor movement, clicks, or drags with interactions designed for each visual:
+  - Particle systems — attract, repel, or stir particles
+  - Physics simulations — pluck, push, or add force sources
+  - Drawing (Ink Calligraphy) — paint brush strokes with speed-based width
+  - Fluid dynamics — drag to smear
+  - 3D/4D rotation — drag to orbit the camera
+  - Light sources — cursor becomes an additional light
+  - Splash/spawn — click to create bursts
+- **Auto-detected interaction hints** on shader detail pages
+
+### Gallery & UI
+
+- **Gallery live mode toggle** — opt-in button in gallery headers to preview all visible shaders at once
+- **Per-shader default color schemes** — shaders can specify a preferred color scheme (e.g. Moonlit Ripple defaults to Blue)
+- **Removed auto-activation budget system** — shaders only activate on hover by default, fixing browser crashes from too many concurrent iframes
+
+### Performance
+
+- Major performance optimizations for Stardust Veil, Silk Cascade, and many other shaders
+- Gallery preload system simplified — HTML pre-fetched on scroll, iframes created only on hover
+
+### Infrastructure
+
+- Preview sprite generation script (`node scripts/generate-previews.mjs`)
+- Comprehensive new-shader checklist in CLAUDE.md
+- Inspiration metadata system (intros + palettes) for celebrity-inspired shader pages
 
 ## 1.0.0 — 2026-03-18
 
