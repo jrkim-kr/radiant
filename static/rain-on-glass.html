@@ -966,18 +966,19 @@
   }
   function wipeAt(clientX, clientY) {
     var p = screenToRd(clientX, clientY);
-    clearDroplets(p.x, p.y, 40);
+    var wipeR = 60 * rdScale;
+    var killR = wipeR * 0.5;
+    var pushR = wipeR * 1.5;
+    clearDroplets(p.x, p.y, wipeR / rdScale);
     // Remove drops under the wipe, push ones at the edge
     for (var i = drops.length - 1; i >= 0; i--) {
       var d = drops[i];
       var dx = d.x - p.x, dy = d.y - p.y;
       var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 25) {
-        // Under the finger — wipe away completely
+      if (dist < killR) {
         drops.splice(i, 1);
-      } else if (dist < 60) {
-        // Edge of wipe — push outward
-        var push = (1 - (dist - 25) / 35) * 12;
+      } else if (dist < pushR) {
+        var push = (1 - (dist - killR) / (pushR - killR)) * 20;
         d.x += (dx / dist) * push;
         d.y += (dy / dist) * push * 0.6;
       }
