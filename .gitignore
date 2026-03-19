@@ -31,3 +31,6 @@ vite.config.ts.timestamp-*
 
 # Build artifacts
 static/radiant-shaders.zip
+
+# Generated videos
+videos/
