@@ -225,10 +225,7 @@
     '  );',
     '  col += orb(uv, s7, dimRose, 0.14, 0.12);',
     '',
-    '  // ── Layer 4: Film grain overlay ──',
-    '  float grain = filmGrain(gl_FragCoord.xy, u_time * 17.3);',
-    '  col *= 1.0 + grain * 0.5 * u_grain;',
-    '  col += grain * 0.08 * u_grain;',
+    '',
     '',
     '  // ── Layer 5: Vignette ──',
     '  float vd = length(uv * vec2(1.1, 1.0));',
@@ -250,6 +247,9 @@
     '    col *= 1.0 + attract * 1.5;',
     '    col += vec3(0.8, 0.6, 0.9) * attract * 0.08;',
     '  }',
+    '  // ── Film grain (applied in display space, after tone mapping) ──',
+    '  float grain = filmGrain(gl_FragCoord.xy, u_time * 17.3);',
+    '  col += grain * 0.3 * u_grain;',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n');
