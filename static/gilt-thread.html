@@ -101,15 +101,16 @@
     var ay = th.ay * (1 + 0.18 * Math.sin(s * th.mfy));
     var shape = Math.round(SHAPE);
 
+    var w = smoothWarp;
     if (shape === 2) {
-      // Rose / rhodonea curves — petal patterns
-      var k = th.fx / th.fy; // ratio determines petal count
+      // Rose / rhodonea curves — warp changes petal count ratio
+      var k = th.fx / th.fy + w * 0.3;
       var r = ax * Math.cos(k * s + th.px);
       return { x: r * Math.cos(s), y: r * Math.sin(s) };
     }
     if (shape === 3) {
-      // Spirograph / epitrochoid
-      var R = ax * 0.6, rr = ax * 0.23, d = ax * 0.45;
+      // Spirograph / epitrochoid — warp changes inner radius
+      var R = ax * 0.6, rr = ax * (0.23 + w * 0.04), d = ax * 0.45;
       var idx = (th.fx + th.fy) * 0.5;
       rr *= (0.7 + (idx % 3) * 0.15);
       var ratio = (R + rr) / rr;
@@ -119,8 +120,8 @@
       };
     }
     if (shape === 4) {
-      // Butterfly curve — intricate symmetric wings
-      var bt = s * 0.4 + th.px;
+      // Butterfly curve — warp stretches the wings
+      var bt = s * (0.4 + w * 0.05) + th.px;
       var expTerm = Math.exp(Math.cos(bt)) - 2 * Math.cos(4 * bt) - Math.pow(Math.sin(bt / 12), 5);
       return {
         x: Math.sin(bt) * expTerm * ax * 0.28,
