@@ -584,7 +584,7 @@ async function recordShader(page, baseUrl, shader, options) {
 		'-i', 'pipe:0',
 		'-c:v', 'libx264',
 		'-preset', 'slow',
-		'-crf', '18',
+		'-crf', '23',
 		'-pix_fmt', 'yuv420p',
 		'-movflags', '+faststart',
 		outputPath
@@ -642,13 +642,16 @@ async function recordShader(page, baseUrl, shader, options) {
 		// Move mouse (convert normalized to viewport pixels)
 		const mx = mousePos.x * viewportWidth;
 		const my = mousePos.y * viewportHeight;
-		// Dispatch mousemove directly on canvas to ensure shaders receive it
+		// Use CDP mouse move (most reliable) + synthetic event on canvas as fallback
+		await page.mouse.move(mx, my);
 		await page.evaluate(({ x, y }) => {
-			const canvas = document.getElementById('canvas');
-			if (canvas) {
-				canvas.dispatchEvent(new MouseEvent('mousemove', {
+			const c = document.getElementById('canvas');
+			if (c) {
+				const r = c.getBoundingClientRect();
+				c.dispatchEvent(new MouseEvent('mousemove', {
 					clientX: x, clientY: y,
-					bubbles: true, cancelable: true
+					offsetX: x - r.left, offsetY: y - r.top,
+					bubbles: true, cancelable: true, view: window
 				}));
 			}
 		}, { x: mx, y: my });
