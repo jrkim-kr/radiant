@@ -134,6 +134,10 @@ export const inspirationPalettes: Record<string, InspirationPalette> = {
 	'benedict-cumberbatch': {
 		primary: '#C8A050',
 		colors: ['#C8A050', '#E8C870', '#785020']
+	},
+	'daft-punk': {
+		primary: '#50C8D0',
+		colors: ['#50C8D0', '#C0C0D0', '#D4A040']
 	}
 };
 

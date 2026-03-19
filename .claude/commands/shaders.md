@@ -159,7 +159,9 @@ Build the top 5 shader ideas (as selected by the ranking agent) as complete, wor
    - Support `postMessage` for params: `window.addEventListener('message', ...)`
    - Define 2 tunable params with sensible defaults
    - Canvas fills viewport, handles resize
-3. **Choose the RIGHT rendering technique** for the effect. Don't default to single-pass fragment shaders. If the effect needs trails → use Canvas 2D with alpha overlay or ping-pong buffers. If it needs particles with physics → Canvas 2D might be perfect. If it needs procedural texture → WebGL fragment shader. Match technique to effect.
+3. **Mouse/touch interaction is REQUIRED.** Every shader must respond to `mousemove`/`touchmove` in a meaningful way — not cosmetic, the interaction should visibly affect the visual.
+4. **Support color schemes.** The 6 gallery color schemes work via CSS `filter` (hue-rotate). Design native colors in warm/amber tones so all schemes look good. If a shader looks best in a non-amber scheme, set `defaultScheme` in its catalog entry.
+5. **Choose the RIGHT rendering technique** for the effect. Don't default to single-pass fragment shaders. If the effect needs trails → use Canvas 2D with alpha overlay or ping-pong buffers. If it needs particles with physics → Canvas 2D might be perfect. If it needs procedural texture → WebGL fragment shader. Match technique to effect.
 4. **The animation must be AMBITIOUS and MULTI-LAYERED.** At least 3-5 distinct visual layers composited together.
 5. Each shader should look DISTINCT from the others.
 6. **Design for sharability**: generative *art* that doubles as a *design asset*.
@@ -188,7 +190,14 @@ Do NOT skip this step. Do NOT pass shaders to the user that you haven't personal
 
 ### Step 5: Register and Present
 
-Add all 5 final (QA-passed) proposals to the `shaders` array in `src/lib/shaders.ts` with appropriate metadata.
+For each kept shader:
+
+1. Add entry to `shaders` array in `src/lib/shaders.ts` with complete metadata: `id`, `file`, `title`, `desc`, `inspiration`, `tags`, `technique`, `params`, and optionally `defaultScheme`
+2. **If inspired by a NEW celebrity** not yet in the project, add entries to:
+   - `src/lib/inspiration-intros.ts` — keyed by slug (e.g. `'daft-punk'`), a 3-4 sentence poetic intro describing their artistic identity and color associations
+   - `src/lib/inspiration-palettes.ts` — keyed by slug, with `primary` hex color and `colors` array (2-4 hex colors for ambient glow)
+3. Generate preview sprite: `node scripts/generate-previews.mjs --only=shader-id` (creates `static/previews/shader-id.webp` for gallery cards)
+4. Verify the shader runs at 60fps, has working mouse interaction, and all color schemes look acceptable
 
 Then tell the user:
 - List all 5 proposals with their names and descriptions
