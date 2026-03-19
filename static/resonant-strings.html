@@ -41,18 +41,34 @@
   var time = 0;
   var running = true;
 
-  // Mouse state for plucking
+  // Mouse state for plucking — drag across strings to strum them
   var mouseX = 0, mouseY = 0;
   var mouseDown = false;
+  var lastPluckedString = -1;
   var pluckAmps = []; // per-string pluck amplitude
   for (var pi = 0; pi < NUM_STRINGS; pi++) pluckAmps.push(0);
 
-  canvas.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
-  canvas.addEventListener('mousedown', function(e) { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; pluckNearestString(e.clientX, e.clientY); });
-  canvas.addEventListener('mouseup', function() { mouseDown = false; });
-  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); mouseDown = true; var t = e.touches[0]; mouseX = t.clientX; mouseY = t.clientY; pluckNearestString(t.clientX, t.clientY); }, { passive: false });
-  canvas.addEventListener('touchmove', function(e) { e.preventDefault(); mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, { passive: false });
-  canvas.addEventListener('touchend', function() { mouseDown = false; });
+  function checkStrum(mx, my) {
+    var bestIdx = -1, bestDist = 1e9;
+    for (var si = 0; si < NUM_STRINGS; si++) {
+      var d = Math.abs(mx - getStringX(si));
+      if (d < bestDist) { bestDist = d; bestIdx = si; }
+    }
+    if (bestDist < W * 0.1 && bestIdx !== lastPluckedString) {
+      lastPluckedString = bestIdx;
+      pluckNearestString(mx, my);
+    }
+  }
+
+  canvas.addEventListener('mousemove', function(e) {
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (mouseDown) checkStrum(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('mousedown', function(e) { mouseDown = true; lastPluckedString = -1; mouseX = e.clientX; mouseY = e.clientY; checkStrum(e.clientX, e.clientY); });
+  canvas.addEventListener('mouseup', function() { mouseDown = false; lastPluckedString = -1; });
+  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); mouseDown = true; lastPluckedString = -1; var t = e.touches[0]; mouseX = t.clientX; mouseY = t.clientY; checkStrum(t.clientX, t.clientY); }, { passive: false });
+  canvas.addEventListener('touchmove', function(e) { e.preventDefault(); mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; checkStrum(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  canvas.addEventListener('touchend', function() { mouseDown = false; lastPluckedString = -1; });
 
   function pluckNearestString(mx, my) {
     var bestIdx = 0, bestDist = 1e9;
