@@ -273,20 +273,8 @@
     var mouseInfluenceX = mouse.active ? (mouse.x - W * 0.5) * 0.05 : 0;
     var mouseInfluenceY = mouse.active ? (mouse.y - H * 0.5) * 0.03 : 0;
 
-    // Motion trail: draw semi-transparent dark overlay instead of clearing
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
-    ctx.fillRect(0, 0, W, H);
-
-    // Every ~2 seconds, redraw the full background to prevent ghosting buildup
-    if (Math.floor(time * 0.5) % 30 === 0 && Math.abs(time * 0.5 - Math.floor(time * 0.5)) < 0.015) {
-      drawBackground();
-    }
-
-    // Track brightest highlight for lens flare
-    var maxBrightness = 0;
-    var maxBrightnessX = 0;
-    var maxBrightnessY = 0;
-    var maxBrightnessCol = { r: 255, g: 255, b: 255 };
+    // Clear and redraw background each frame (no ghosting artifacts)
+    drawBackground();
 
     // ── Collect and depth-sort ribbon segments ──
     // We'll gather all ribbon segments, sort by depth, then draw
@@ -377,19 +365,6 @@
         // Chrome color based on normal angle
         var col = chromeColor(normalAngle, rb.hue + time * 0.3, avgDepth);
 
-        // Brightness for lens flare tracking
-        var brightness = (col.r + col.g + col.b) / (255 * 3);
-        var midSx = (a.sx + b.sx + c.sx + d.sx) * 0.25;
-        var midSy = (a.sy + b.sy + c.sy + d.sy) * 0.25;
-
-        // Track brightest point
-        if (brightness > maxBrightness && midSx > 0 && midSx < W && midSy > 0 && midSy < H) {
-          maxBrightness = brightness;
-          maxBrightnessX = midSx;
-          maxBrightnessY = midSy;
-          maxBrightnessCol = col;
-        }
-
         allSegments.push({
           ax: a.sx, ay: a.sy,
           bx: b.sx, by: b.sy,
@@ -444,8 +419,7 @@
 
     ctx.globalAlpha = 1;
 
-    // ── Lens flare at brightest point ──
-    drawLensFlare(maxBrightnessX, maxBrightnessY, maxBrightness, maxBrightnessCol);
+    // Lens flare removed — was jumping erratically between brightest segments
 
     requestAnimationFrame(draw);
   }
