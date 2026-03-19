@@ -23,7 +23,20 @@
 	});
 
 	let activeLayout: Layout = $state('full');
+	const defaultScheme = $derived(
+		shader.defaultScheme
+			? colorSchemes.find((s) => s.id === shader.defaultScheme) ?? colorSchemes[0]
+			: colorSchemes[0]
+	);
 	let activeScheme = $state(colorSchemes[0]);
+	// Apply shader's default scheme on first load
+	let schemeInitialized = false;
+	$effect(() => {
+		if (!schemeInitialized) {
+			activeScheme = defaultScheme;
+			schemeInitialized = true;
+		}
+	});
 	let showSource = $state(false);
 	let rawSource = $state('');
 	let sourceLoading = $state(false);
