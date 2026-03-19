@@ -12,8 +12,8 @@ A collection of standalone canvas-based generative animations with a SvelteKit g
 
 ```
 src/routes/+page.svelte   — Gallery grid with iframe previews
-static/XX-name.html       — Standalone shader pages (01-09)
-static/standalone/         — Duplicate copies (legacy, can be removed)
+static/*.html              — Standalone shader pages
+src/lib/shaders.ts         — Shader catalog metadata
 ```
 
 ## Commands

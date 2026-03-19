@@ -199,7 +199,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'strobe-geometry',
-		file: 'proposal-dua-4.html',
+		file: 'strobe-geometry.html',
 		title: 'Strobe Geometry',
 		desc: 'Sharp neon geometric shapes flashing in choreographed sequence with cyan-to-magenta afterglow decay.',
 		inspiration: 'Dua Lipa',
@@ -501,7 +501,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'gilt-thread',
-		file: 'proposal-bruno-4.html',
+		file: 'gilt-thread.html',
 		title: 'Gilt Thread',
 		desc: 'Golden threads tracing intricate parametric curves with metallic sheen and sparkle tips.',
 		inspiration: 'Bruno Mars',
@@ -538,7 +538,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'burning-film',
-		file: 'proposal-weeknd-2.html',
+		file: 'burning-film.html',
 		title: 'Burning Film',
 		desc: 'Celluloid film stock catching fire with spreading amber burn holes, glowing edges, and ember field.',
 		inspiration: 'The Weeknd',
@@ -551,7 +551,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'vertigo',
-		file: 'proposal-weeknd-4.html',
+		file: 'vertigo.html',
 		title: 'Vertigo',
 		desc: 'Slow hypnotic tunnel with crimson ring segments, wave-based illumination, and dark void center.',
 		inspiration: 'The Weeknd',
@@ -564,7 +564,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'stardust-veil',
-		file: 'proposal-ariana-3.html',
+		file: 'stardust-veil.html',
 		title: 'Stardust Veil',
 		desc: 'Dense cosmic stardust with parallax depth layers, aurora ribbons, constellation threads, and brightness waves.',
 		inspiration: 'Ariana Grande',
@@ -577,7 +577,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'silk-cascade',
-		file: 'proposal-ariana-5.html',
+		file: 'silk-cascade.html',
 		title: 'Silk Cascade',
 		desc: 'Flowing layered silk fabric with anisotropic specular highlights, parallax depth, and warm translucent overlap.',
 		inspiration: 'Ariana Grande',
@@ -590,7 +590,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'smolder',
-		file: 'proposal-postmalone-1.html',
+		file: 'smolder.html',
 		title: 'Smolder',
 		desc: 'Radial warmth radiating through animated turbulence with heat shimmer, ember particles, and cool blue edges.',
 		inspiration: 'Pedro Pascal',
@@ -610,7 +610,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'signal-decay',
-		file: 'proposal-postmalone-3.html',
+		file: 'signal-decay.html',
 		title: 'Signal Decay',
 		desc: 'Clean amber waveforms progressively degrading into gorgeous warm noise — order dissolving into beautiful chaos.',
 		inspiration: 'Billie Eilish',
@@ -902,7 +902,7 @@ export const shaders: Shader[] = [
 	},
 	{
 		id: 'magnetic-sand',
-		file: 'proposal-ana-5.html',
+		file: 'magnetic-sand.html',
 		title: 'Magnetic Sand',
 		desc: 'Thousands of particles aligning along invisible magnetic field lines with warm golden glow.',
 		inspiration: 'Ana de Armas',
