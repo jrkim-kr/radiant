@@ -220,6 +220,18 @@
     '  float sc = u_scale > 0.0 ? u_scale : 1.0;',
     '  vec2 uv = (gl_FragCoord.xy - u_res * origin) / (min(u_res.x, u_res.y) * sc);',
     '  float aspect = u_res.x / u_res.y;',
+    '',
+    '  // ── Drag: 3D perspective tilt ──',
+    '  {',
+    '    float tiltX = u_mouse.x;',
+    '    float tiltY = u_mouse.y;',
+    '    // Compress axis + perspective foreshortening',
+    '    float z = uv.x * sin(tiltX) + uv.y * sin(-tiltY);',
+    '    float persp = 1.0 + z * 0.4;',
+    '    uv.x *= cos(tiltX) * persp;',
+    '    uv.y *= cos(tiltY) * persp;',
+    '  }',
+    '',
     '  float t = u_time;',
     '',
     '  // Tube thickness — responsive to resolution',
@@ -724,14 +736,44 @@
   var uScale = gl.getUniformLocation(prog, 'u_scale');
   var uMouse = gl.getUniformLocation(prog, 'u_mouse');
 
-  // Click to cycle through neon shapes
-  canvas.addEventListener('click', function() {
-    shapeVal = (shapeVal % 4) + 1;
+  // Drag to rotate the neon sign in 3D, click to cycle shapes
+  var mouseDown = false, lastMX = 0, lastMY = 0, dragged = false;
+  var tiltX = 0, tiltY = 0;
+
+  canvas.addEventListener('mousedown', function(e) { mouseDown = true; dragged = false; lastMX = e.clientX; lastMY = e.clientY; });
+  canvas.addEventListener('mousemove', function(e) {
+    if (mouseDown) {
+      tiltX += (e.clientX - lastMX) * 0.004;
+      tiltY += (e.clientY - lastMY) * 0.004;
+      tiltX = Math.max(-1.0, Math.min(1.0, tiltX));
+      tiltY = Math.max(-0.8, Math.min(0.8, tiltY));
+      lastMX = e.clientX; lastMY = e.clientY;
+      if (Math.abs(tiltX) + Math.abs(tiltY) > 0.02) dragged = true;
+    }
+  });
+  canvas.addEventListener('mouseup', function() {
+    if (!dragged) shapeVal = (shapeVal % 4) + 1;
+    mouseDown = false;
   });
   canvas.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    shapeVal = (shapeVal % 4) + 1;
+    e.preventDefault(); mouseDown = true; dragged = false;
+    lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
   }, { passive: false });
+  canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (mouseDown) {
+      tiltX += (e.touches[0].clientX - lastMX) * 0.004;
+      tiltY += (e.touches[0].clientY - lastMY) * 0.004;
+      tiltX = Math.max(-1.0, Math.min(1.0, tiltX));
+      tiltY = Math.max(-0.8, Math.min(0.8, tiltY));
+      lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+      dragged = true;
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchend', function() {
+    if (!dragged) shapeVal = (shapeVal % 4) + 1;
+    mouseDown = false;
+  });
 
   var glowIntensityVal = 1.0;
   var flickerRateVal = 0.5;
@@ -763,7 +805,7 @@
     gl.uniform1f(uShape, shapeVal);
     gl.uniform2f(uCenter, centerX, centerY);
     gl.uniform1f(uScale, scaleVal);
-    gl.uniform2f(uMouse, -1.0, -1.0);
+    gl.uniform2f(uMouse, tiltX, tiltY);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     requestAnimationFrame(render);
   }
