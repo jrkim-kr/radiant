@@ -227,7 +227,7 @@
     '',
     '  // ── Layer 4: Film grain overlay ──',
     '  float grain = filmGrain(gl_FragCoord.xy * 0.5, u_time * 17.3);',
-    '  col += grain * 0.04 * u_grain;',
+    '  col += grain * 0.15 * u_grain;',
     '',
     '  // ── Layer 5: Vignette ──',
     '  float vd = length(uv * vec2(1.1, 1.0));',
