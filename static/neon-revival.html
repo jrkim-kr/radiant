@@ -763,7 +763,7 @@
     gl.uniform1f(uShape, shapeVal);
     gl.uniform2f(uCenter, centerX, centerY);
     gl.uniform1f(uScale, scaleVal);
-    gl.uniform2f(uMouse, mouseXVal, mouseYVal);
+    gl.uniform2f(uMouse, -1.0, -1.0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     requestAnimationFrame(render);
   }
