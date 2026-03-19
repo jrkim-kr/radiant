@@ -57,6 +57,7 @@
   // ── Mouse state ──
   var mouseX = 0, mouseY = 0;
   var mouseActive = false;
+  var mouseDown = false;
 
   // ── Runtime state ──
   var W = 0, H = 0, dpr = 1;
@@ -89,6 +90,8 @@
       z:  z,
       vx: (Math.random() - 0.5) * 0.25,
       vy: (Math.random() - 0.5) * 0.18,
+      baseVx: 0,
+      baseVy: 0,
       theta:  Math.random() * 6.2832,
       phi:    Math.random() * 6.2832,
       dTheta: (Math.random() - 0.5) * 3.2,
@@ -109,7 +112,12 @@
   function initParticles() {
     var n = particleTarget();
     particles = [];
-    for (var i = 0; i < n; i++) particles.push(mkParticle());
+    for (var i = 0; i < n; i++) {
+      var pp = mkParticle();
+      pp.baseVx = pp.vx;
+      pp.baseVy = pp.vy;
+      particles.push(pp);
+    }
     particles.sort(function(a, b) { return a.z - b.z; });
   }
 
@@ -182,9 +190,9 @@
         }
       }
 
-      // Dampen velocity back toward base drift
-      p.vx += (p.vx > 0 ? -1 : 1) * Math.min(Math.abs(p.vx) * 0.02, 0.01);
-      p.vy += (p.vy > 0 ? -1 : 1) * Math.min(Math.abs(p.vy) * 0.02, 0.01);
+      // Restore velocity toward original drift
+      p.vx += (p.baseVx - p.vx) * 0.03;
+      p.vy += (p.baseVy - p.vy) * 0.03;
 
       // Specular: |dot(N, L)|  — mirrors on both sides of disc
       var smax = 0;
@@ -358,11 +366,13 @@
     requestAnimationFrame(frame);
   }
 
-  canvas.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; mouseActive = true; });
-  canvas.addEventListener('mouseleave', function() { mouseActive = false; });
-  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); mouseActive = true; mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, { passive: false });
+  canvas.addEventListener('mousedown', function(e) { mouseDown = true; mouseActive = true; mouseX = e.clientX; mouseY = e.clientY; });
+  canvas.addEventListener('mousemove', function(e) { if (mouseDown) { mouseX = e.clientX; mouseY = e.clientY; } });
+  canvas.addEventListener('mouseup', function() { mouseDown = false; mouseActive = false; });
+  canvas.addEventListener('mouseleave', function() { mouseDown = false; mouseActive = false; });
+  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); mouseDown = true; mouseActive = true; mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, { passive: false });
   canvas.addEventListener('touchmove', function(e) { e.preventDefault(); mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, { passive: false });
-  canvas.addEventListener('touchend', function() { mouseActive = false; });
+  canvas.addEventListener('touchend', function() { mouseDown = false; mouseActive = false; });
 
   window.addEventListener('resize', function() {
     resize();
