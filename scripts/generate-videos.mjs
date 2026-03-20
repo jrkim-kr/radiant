@@ -361,6 +361,102 @@ async function hideSliderOverlay(page) {
 	});
 }
 
+// ---------------------------------------------------------------------------
+// Cursor overlay system
+// ---------------------------------------------------------------------------
+
+/**
+ * Show a visual cursor at the given position.
+ * state: 'move' | 'click' | 'drag'
+ */
+async function showCursor(page, x, y, state) {
+	await page.evaluate(({ x, y, state }) => {
+		// Main cursor dot
+		let cursor = document.getElementById('__video-cursor');
+		if (!cursor) {
+			cursor = document.createElement('div');
+			cursor.id = '__video-cursor';
+			Object.assign(cursor.style, {
+				position: 'fixed',
+				width: '20px',
+				height: '20px',
+				borderRadius: '50%',
+				background: 'rgba(200, 149, 108, 0.6)',
+				border: '2px solid rgba(255, 255, 255, 0.8)',
+				boxShadow: '0 0 12px rgba(200, 149, 108, 0.3)',
+				zIndex: '100000',
+				pointerEvents: 'none',
+				transform: 'translate(-50%, -50%)',
+				transition: 'none'
+			});
+			document.body.appendChild(cursor);
+		}
+		cursor.style.left = x + 'px';
+		cursor.style.top = y + 'px';
+		cursor.style.opacity = '1';
+
+		// Adjust appearance based on state
+		if (state === 'drag') {
+			cursor.style.width = '24px';
+			cursor.style.height = '24px';
+			cursor.style.background = 'rgba(200, 149, 108, 0.8)';
+			cursor.style.boxShadow = '0 0 20px rgba(200, 149, 108, 0.5)';
+		} else if (state === 'click') {
+			cursor.style.width = '20px';
+			cursor.style.height = '20px';
+			cursor.style.background = 'rgba(200, 149, 108, 0.6)';
+			cursor.style.boxShadow = '0 0 12px rgba(200, 149, 108, 0.3)';
+		} else {
+			cursor.style.width = '20px';
+			cursor.style.height = '20px';
+			cursor.style.background = 'rgba(200, 149, 108, 0.6)';
+			cursor.style.boxShadow = '0 0 12px rgba(200, 149, 108, 0.3)';
+		}
+
+		// Click ripple effect
+		if (state === 'click') {
+			const ripple = document.createElement('div');
+			Object.assign(ripple.style, {
+				position: 'fixed',
+				left: x + 'px',
+				top: y + 'px',
+				width: '10px',
+				height: '10px',
+				borderRadius: '50%',
+				border: '2px solid rgba(200, 149, 108, 0.8)',
+				transform: 'translate(-50%, -50%)',
+				zIndex: '99999',
+				pointerEvents: 'none',
+				animation: 'cursorRipple 0.6s ease-out forwards'
+			});
+			document.body.appendChild(ripple);
+
+			// Add animation keyframes if not yet added
+			if (!document.getElementById('__cursor-styles')) {
+				const style = document.createElement('style');
+				style.id = '__cursor-styles';
+				style.textContent = `
+					@keyframes cursorRipple {
+						0% { width: 10px; height: 10px; opacity: 1; }
+						100% { width: 60px; height: 60px; opacity: 0; }
+					}
+				`;
+				document.head.appendChild(style);
+			}
+
+			// Clean up ripple after animation
+			setTimeout(() => ripple.remove(), 700);
+		}
+	}, { x, y, state });
+}
+
+async function hideCursor(page) {
+	await page.evaluate(() => {
+		const cursor = document.getElementById('__video-cursor');
+		if (cursor) cursor.style.opacity = '0';
+	});
+}
+
 /**
  * Compute caption opacity for a given frame within a scene.
  * Fades in over fadeFrames, holds, fades out over fadeFrames.
@@ -740,20 +836,22 @@ async function recordShader(page, baseUrl, shader, options) {
 			const mousePos = figure8(progress);
 			const mx = mousePos.x * viewportWidth;
 			const my = mousePos.y * viewportHeight;
+			let cursorState = 'move';
 
 			if (interactionType === 'drag') {
-				// Drag: mousedown at start, move throughout, mouseup at end
 				if (frame === scene.startFrame) {
 					await page.mouse.move(mx, my);
 					await page.mouse.down();
+					cursorState = 'drag';
 				} else if (frame === scene.startFrame + scene.durationFrames - 1) {
 					await page.mouse.move(mx, my);
 					await page.mouse.up();
+					cursorState = 'move';
 				} else {
 					await page.mouse.move(mx, my);
+					cursorState = 'drag';
 				}
 			} else if (interactionType === 'click' || interactionType === 'click+hover') {
-				// Move cursor + periodic clicks
 				await page.mouse.move(mx, my);
 				await page.evaluate(({ x, y }) => {
 					const c = document.getElementById('canvas');
@@ -761,14 +859,13 @@ async function recordShader(page, baseUrl, shader, options) {
 						clientX: x, clientY: y, bubbles: true, view: window
 					}));
 				}, { x: mx, y: my });
-				// Click every ~1.5 seconds
 				const framesPerClick = Math.round(1.5 * fps);
 				const frameInScene = frame - scene.startFrame;
 				if (frameInScene > 0 && frameInScene % framesPerClick === 0) {
 					await page.mouse.click(mx, my);
+					cursorState = 'click';
 				}
 			} else {
-				// Hover: just move
 				await page.mouse.move(mx, my);
 				await page.evaluate(({ x, y }) => {
 					const c = document.getElementById('canvas');
@@ -777,9 +874,13 @@ async function recordShader(page, baseUrl, shader, options) {
 					}));
 				}, { x: mx, y: my });
 			}
+
+			// Show visual cursor
+			await showCursor(page, mx, my, cursorState);
 		} else if (scene.name !== 'outro') {
-			// Move mouse off-screen for all other scenes
+			// Move mouse off-screen and hide cursor for all other scenes
 			if (frame === scene.startFrame) {
+				await hideCursor(page);
 				await page.mouse.move(-10, -10);
 				await page.evaluate(() => {
 					const c = document.getElementById('canvas');
