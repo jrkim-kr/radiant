@@ -4,10 +4,13 @@
 
 ### New Shaders
 
+- **Feedback Loop** (Daft Punk) — Recursive video feedback tunnel with holographic color cycling, geometric seed shapes, and infinite fractal depth using ping-pong FBOs (WebGL)
+- **Dither Gradient** (Daft Punk) — Smooth gradients decomposed into shifting ordered dithering patterns (Bayer, halftone, crosshatch) with chromatic separation and bit-depth waves (WebGL)
+- **Analog Drift** (Daft Punk) — Morphing Lissajous figures with phosphor persistence trails, harmonic overtones, and oscilloscope grid (Canvas 2D)
 - **Synth Ribbon** (Chappell Roan) — Flowing metallic ribbons twisting through 3D space with chrome reflections in hot pink and cyan (Canvas 2D)
 - **Hologram Glitch** (Daft Punk) — Abstract holographic texture with chromatic aberration, scanlines, and controlled glitch bursts (WebGL)
-- **Erosion Channels** — Fractal dendritic channel networks carving through warm sandstone terrain (WebGL)
-- **Golden Sediment** — Layered sedimentary strata with tectonic folding and crystalline sparkles (WebGL)
+- **Shattered Plains** (Brandon Sanderson) — Storm-carved chasms branching through ancient sandstone plateaus with depth-revealed strata (WebGL)
+- **Painted Strata** (Laufey) — Flowing layered bands with washi paper textures, slow tectonic folding, and fibrous grain (WebGL)
 
 ### Shader Rewrites & Polish
 

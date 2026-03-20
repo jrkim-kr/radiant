@@ -10,7 +10,7 @@
 			</div>
 			<ul>
 				<li>Mouse & touch interactivity for all shaders — move, click, or drag to interact</li>
-				<li>New shaders: Synth Ribbon, Hologram Glitch, Erosion Channels, Golden Sediment, and more</li>
+				<li>New shaders: Feedback Loop, Dither Gradient, Analog Drift, Shattered Plains, Painted Strata, Synth Ribbon, Hologram Glitch</li>
 				<li>Moonlit Ripple rewritten with 3D perspective, Fresnel water, and adjustable wave intensity</li>
 				<li>Eclipse Glow polished — asymmetric corona, softer diamond ring, cleaner particles</li>
 				<li>Gallery live mode toggle — opt-in to preview all visible shaders at once</li>

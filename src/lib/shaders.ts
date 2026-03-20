@@ -1231,6 +1231,45 @@ export const shaders: Shader[] = [
 			{ name: 'LAYER_COUNT', label: 'Layer Count', min: 8, max: 24, step: 1, default: 16 }
 		]
 	},
+	{
+		id: 'feedback-loop',
+		file: 'feedback-loop.html',
+		title: 'Feedback Loop',
+		desc: 'Recursive video feedback tunnel with holographic color cycling, geometric seed shapes, and infinite fractal depth.',
+		inspiration: 'Daft Punk',
+		tags: ['fill', 'geometric'],
+		technique: 'webgl',
+		params: [
+			{ name: 'ZOOM_SPEED', label: 'Zoom Speed', min: 0.5, max: 3.0, step: 0.1, default: 1.0 },
+			{ name: 'ROTATION_SPEED', label: 'Rotation Speed', min: 0.1, max: 2.0, step: 0.05, default: 0.5 }
+		]
+	},
+	{
+		id: 'dither-gradient',
+		file: 'dither-gradient.html',
+		title: 'Dither Gradient',
+		desc: 'Smooth gradients decomposed into shifting ordered dithering patterns with chromatic separation and bit-depth waves.',
+		inspiration: 'Daft Punk',
+		tags: ['fill', 'geometric'],
+		technique: 'webgl',
+		params: [
+			{ name: 'DITHER_SCALE', label: 'Dither Scale', min: 0.5, max: 3.0, step: 0.1, default: 1.0 },
+			{ name: 'BIT_DEPTH', label: 'Bit Depth', min: 0.3, max: 2.0, step: 0.05, default: 1.0 }
+		]
+	},
+	{
+		id: 'analog-drift',
+		file: 'analog-drift.html',
+		title: 'Analog Drift',
+		desc: 'Morphing Lissajous figures with phosphor persistence trails, harmonic overtones, and oscilloscope grid.',
+		inspiration: 'Daft Punk',
+		tags: ['object', 'geometric'],
+		technique: 'canvas-2d',
+		params: [
+			{ name: 'DRIFT_SPEED', label: 'Drift Speed', min: 0.1, max: 2.0, step: 0.05, default: 0.5 },
+			{ name: 'TRAIL_LENGTH', label: 'Trail Length', min: 0.3, max: 2.0, step: 0.05, default: 1.0 }
+		]
+	},
 ];
 
 export function getShaderById(id: string): Shader | undefined {
