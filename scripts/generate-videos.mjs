@@ -313,7 +313,7 @@ async function setSliderOverlay(page, label, value, min, max, opacity) {
 				<div style="position:relative;height:4px;background:rgba(200,149,108,0.15);border-radius:2px;overflow:hidden">
 					<div id="__slider-fill" style="position:absolute;left:0;top:0;height:100%;background:rgba(200,149,108,0.7);border-radius:2px;transition:none"></div>
 				</div>
-				<div id="__slider-thumb" style="position:absolute;bottom:12px;width:12px;height:12px;border-radius:50%;background:rgba(200,149,108,0.9);box-shadow:0 0 8px rgba(200,149,108,0.4);transform:translate(-50%,50%);transition:none"></div>
+				<div id="__slider-thumb" style="position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(200,149,108,0.9);box-shadow:0 0 8px rgba(200,149,108,0.4);transform:translateX(-50%);transition:none"></div>
 			`;
 			document.body.appendChild(el);
 		}
@@ -323,9 +323,14 @@ async function setSliderOverlay(page, label, value, min, max, opacity) {
 		var pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
 		document.getElementById('__slider-fill').style.width = (pct * 100) + '%';
 		// Position thumb — account for padding (32px each side)
-		var trackWidth = el.offsetWidth - 64;
+		var trackEl = el.querySelector('[id="__slider-fill"]').parentElement;
+		var trackRect = trackEl.getBoundingClientRect();
+		var elRect = el.getBoundingClientRect();
 		var thumbEl = document.getElementById('__slider-thumb');
-		thumbEl.style.left = (32 + pct * trackWidth) + 'px';
+		var trackLeft = trackRect.left - elRect.left;
+		var trackW = trackRect.width;
+		thumbEl.style.left = (trackLeft + pct * trackW) + 'px';
+		thumbEl.style.top = (trackRect.top - elRect.top + trackRect.height / 2 - 6) + 'px';
 	}, { label, value, min, max, opacity });
 }
 
@@ -544,9 +549,6 @@ function colorSceneFilter(t) {
 // ---------------------------------------------------------------------------
 const RAF_OVERRIDE_SCRIPT = `
 (function() {
-	// Skip override in outro mode (let it run real-time)
-	if (window.__outroMode) return;
-
 	// Store the real rAF but replace with our controlled version
 	const _realRAF = window.requestAnimationFrame;
 	let _storedCallback = null;
@@ -699,15 +701,9 @@ async function recordShader(page, baseUrl, shader, options) {
 			await hideCaption(page);
 			await hideSliderOverlay(page);
 			const outroUrl = `${baseUrl}/video-outro.html?name=${encodeURIComponent(shader.title)}&url=${encodeURIComponent('radiant-shaders.com/shader/' + shader.id)}`;
-			// Use a fresh page without the rAF override for the outro
-			// (Canvas 2D outro runs fine in real-time)
-			await page.evaluateOnNewDocument(() => {
-				// Disable the rAF override for this navigation
-				window.__outroMode = true;
-			});
+			// Outro is pure HTML/CSS (no canvas/rAF) — just navigate and let CSS animate
 			await page.goto(outroUrl, { waitUntil: 'domcontentloaded' });
-			// Let the outro run in real-time for a moment to start rendering
-			await new Promise(r => setTimeout(r, 1000));
+			await new Promise(r => setTimeout(r, 500));
 		}
 
 		// Mouse movement — only during interaction scene
