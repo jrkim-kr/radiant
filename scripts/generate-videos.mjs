@@ -1096,32 +1096,13 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 			}
 		}
 
-		// Color scheme scene: 6-panel split screen (static capture)
+		// Color scheme scene: 6-panel split screen with live iframes
 		if (scene.name === 'colors') {
 			const frameInScene = frame - scene.startFrame;
 
-			// On first frame, capture 6 panels and build the grid
+			// On first frame, build the grid with 6 live shader iframes
 			if (frameInScene === 0) {
-				// Capture each scheme one at a time, injecting into grid as we go
-				const schemeData = [];
-				for (const scheme of COLOR_SCHEMES) {
-					await page.evaluate((f) => {
-						const iframe = document.querySelector('iframe');
-						if (iframe) iframe.style.filter = f;
-					}, scheme.filter);
-					await page.evaluate(() => new Promise(r => setTimeout(r, 50)));
-					// Use CDP to capture screenshot as base64 without going through evaluate
-					const { data } = await page._client().send('Page.captureScreenshot', { format: 'jpeg', quality: 75 });
-					schemeData.push({ base64: data, name: scheme.name });
-				}
-				// Reset filter
-				await page.evaluate((f) => {
-					const iframe = document.querySelector('iframe');
-					if (iframe) iframe.style.filter = f;
-				}, defaultScheme.filter);
-
-				// Inject panels one at a time (small evaluate payloads)
-				await page.evaluate(() => {
+				await page.evaluate(({ schemes, shaderFile, baseUrl }) => {
 					const container = document.getElementById('__video-overlays') || document.body;
 					const grid = document.createElement('div');
 					grid.id = '__color-grid';
@@ -1135,16 +1116,25 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 						background: '#0a0a0a',
 						zIndex: '100000',
 						opacity: '0',
-						transition: 'none'
+						transition: 'none',
+						pointerEvents: 'auto'
 					});
-					for (let i = 0; i < 6; i++) {
+					for (const scheme of schemes) {
 						const cell = document.createElement('div');
-						cell.id = '__color-cell-' + i;
 						Object.assign(cell.style, {
 							position: 'relative',
-							overflow: 'hidden',
-							backgroundSize: 'cover',
-							backgroundPosition: 'center'
+							overflow: 'hidden'
+						});
+						const iframe = document.createElement('iframe');
+						iframe.src = baseUrl + '/' + shaderFile;
+						Object.assign(iframe.style, {
+							position: 'absolute',
+							inset: '0',
+							width: '100%',
+							height: '100%',
+							border: 'none',
+							filter: scheme.filter,
+							pointerEvents: 'none'
 						});
 						const label = document.createElement('div');
 						Object.assign(label.style, {
@@ -1159,27 +1149,51 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 							textTransform: 'uppercase',
 							color: 'rgba(232, 224, 216, 0.8)',
 							background: 'rgba(10, 10, 10, 0.6)',
+							backdropFilter: 'blur(4px)',
 							padding: '3px 10px',
 							borderRadius: '4px',
-							whiteSpace: 'nowrap'
+							whiteSpace: 'nowrap',
+							zIndex: '1'
 						});
+						label.textContent = scheme.name;
+						cell.appendChild(iframe);
 						cell.appendChild(label);
 						grid.appendChild(cell);
 					}
 					container.appendChild(grid);
-				});
+				}, { schemes: COLOR_SCHEMES, shaderFile: shader.file, baseUrl });
 
-				// Set each panel's image and label individually (avoids large payload)
-				for (let i = 0; i < schemeData.length; i++) {
-					await page.evaluate(({ idx, base64, name }) => {
-						const cell = document.getElementById('__color-cell-' + idx);
-						if (cell) {
-							cell.style.backgroundImage = 'url(data:image/jpeg;base64,' + base64 + ')';
-							cell.querySelector('div').textContent = name;
-						}
-					}, { idx: i, base64: schemeData[i].base64, name: schemeData[i].name });
-				}
+				// Wait for iframes to load
+				await new Promise(r => setTimeout(r, 2000));
+
+				// Hide labels inside each grid iframe
+				await page.evaluate(() => {
+					const grid = document.getElementById('__color-grid');
+					if (!grid) return;
+					grid.querySelectorAll('iframe').forEach(iframe => {
+						try {
+							const doc = iframe.contentDocument || iframe.contentWindow.document;
+							const label = doc.querySelector('.label');
+							if (label) label.style.display = 'none';
+						} catch(e) {}
+					});
+				});
 			}
+
+			// Advance all 6 grid iframes + the main iframe
+			await page.evaluate((dt) => {
+				// Advance grid iframes
+				const grid = document.getElementById('__color-grid');
+				if (grid) {
+					grid.querySelectorAll('iframe').forEach(iframe => {
+						try {
+							if (iframe.contentWindow && iframe.contentWindow.__captureAdvanceFrame) {
+								iframe.contentWindow.__captureAdvanceFrame(dt);
+							}
+						} catch(e) {}
+					});
+				}
+			}, dt);
 
 			// Fade in only (grid stays until outro navigates away)
 			const fadeFrames = Math.round(0.5 * fps);
