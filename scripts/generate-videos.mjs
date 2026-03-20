@@ -673,9 +673,8 @@ function colorSceneFilter(t) {
 // ---------------------------------------------------------------------------
 const RAF_OVERRIDE_SCRIPT = `
 (function() {
-	// Skip override in iframes (detail page embeds shader in iframe)
-	if (window !== window.top) return;
 	// Skip override when loading non-shader pages (detail page, outro)
+	// Note: override DOES apply inside iframes so we can control their timing
 	if (window.__skipRAFOverride) { delete window.__skipRAFOverride; return; }
 
 	// Store the real rAF but replace with our controlled version
@@ -823,6 +822,7 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 	const startTime = Date.now();
 	let lastPercent = -1;
 	let outroLoaded = false;
+	let iframeFrameCount = 0; // Track frames rendered in iframe for seamless transition
 
 	for (let frame = 0; frame < totalFrames; frame++) {
 		const scene = getScene(scenes, frame);
@@ -830,12 +830,15 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 
 		// --- Apply scene-specific actions ---
 
-		// ── Detail page scene: capture in real-time (no rAF override) ──
+		// ── Detail page scene: advance iframe shader deterministically ──
 		if (scene.name === 'detailpage') {
-			// Real-time capture of the SvelteKit detail page
-			await new Promise(r => setTimeout(r, dt));
-
-			// Force a repaint
+			await page.evaluate((dt) => {
+				const iframe = document.querySelector('iframe');
+				if (iframe && iframe.contentWindow && iframe.contentWindow.__captureAdvanceFrame) {
+					iframe.contentWindow.__captureAdvanceFrame(dt);
+				}
+			}, dt);
+			iframeFrameCount++;
 			await page.evaluate(() => new Promise(r => setTimeout(r, 0)));
 
 			const screenshot = await page.screenshot({ type: 'png', fullPage: false, omitBackground: false });
@@ -857,65 +860,60 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 		if (scene.name === 'zoom') {
 			const zoomProgress = easeInOut(sceneProgress(scene, frame));
 
-			await page.evaluate((p) => {
-				// Find the shader iframe or its container
-				const iframe = document.querySelector('.preview-area iframe') ||
-					document.querySelector('.preview iframe') ||
-					document.querySelector('iframe');
-				const previewArea = document.querySelector('.preview-area');
-				const sidebar = document.querySelector('.sidebar');
-				const nav = document.querySelector('nav');
-
-				// Use the iframe's rect as the source for the zoom
-				const target = iframe || previewArea;
-				if (target) {
-					const rect = target.getBoundingClientRect();
-					const vw = window.innerWidth;
-					const vh = window.innerHeight;
-
-					// Scale to cover the entire viewport
-					const scaleX = vw / rect.width;
-					const scaleY = vh / rect.height;
-					const scale = Math.max(scaleX, scaleY);
-					const targetScale = 1 + (scale - 1) * p;
-
-					// Translate center of target to center of viewport
-					const cx = rect.left + rect.width / 2;
-					const cy = rect.top + rect.height / 2;
-					const tx = (vw / 2 - cx) * p;
-					const ty = (vh / 2 - cy) * p;
-
-					// Apply transform to the preview area (parent of iframe)
-					if (previewArea) {
-						previewArea.style.transform = `translate(${tx}px, ${ty}px) scale(${targetScale})`;
-						previewArea.style.transformOrigin = `${cx - previewArea.getBoundingClientRect().left + previewArea.scrollLeft}px ${cy - previewArea.getBoundingClientRect().top + previewArea.scrollTop}px`;
-						previewArea.style.zIndex = '10000';
-						previewArea.style.overflow = 'visible';
-					}
-
-					// Remove border radius as we zoom
-					const preview = document.querySelector('.preview');
-					if (preview) {
-						preview.style.borderRadius = (8 * (1 - p)) + 'px';
-						preview.style.borderColor = `rgba(200, 149, 108, ${0.12 * (1 - p)})`;
-						preview.style.overflow = 'hidden';
-					}
+			// Advance the iframe shader
+			await page.evaluate((dt) => {
+				const iframe = document.querySelector('iframe');
+				if (iframe && iframe.contentWindow && iframe.contentWindow.__captureAdvanceFrame) {
+					iframe.contentWindow.__captureAdvanceFrame(dt);
 				}
+			}, dt);
+			iframeFrameCount++;
 
-				// Fade out chrome quickly (complete by 60% of zoom)
-				const fadeOut = Math.max(0, 1 - p * 2.5);
-				if (sidebar) sidebar.style.opacity = String(fadeOut);
-				if (nav) nav.style.opacity = String(fadeOut);
-				// Fade out all other page elements
-				document.querySelectorAll('.page > *:not(.main)').forEach(el => {
+			// On first zoom frame, measure the iframe rect and store it
+			if (frame === scene.startFrame) {
+				await page.evaluate(() => {
+					const iframe = document.querySelector('iframe');
+					if (iframe) {
+						const r = iframe.getBoundingClientRect();
+						window.__zoomStartRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+					}
+				});
+			}
+
+			await page.evaluate((p) => {
+				const r = window.__zoomStartRect;
+				if (!r) return;
+				const vw = window.innerWidth;
+				const vh = window.innerHeight;
+
+				// Compute scale to fill viewport from the iframe's initial rect
+				const scaleX = vw / r.width;
+				const scaleY = vh / r.height;
+				const scale = 1 + (Math.max(scaleX, scaleY) - 1) * p;
+
+				// Translate iframe center to viewport center
+				const cx = r.left + r.width / 2;
+				const cy = r.top + r.height / 2;
+				const tx = (vw / 2 - cx) * p;
+				const ty = (vh / 2 - cy) * p;
+
+				// Apply to the whole page as a zoom effect
+				document.body.style.transformOrigin = cx + 'px ' + cy + 'px';
+				document.body.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+
+				// Fade out all chrome
+				const fadeOut = Math.max(0, 1 - p * 2);
+				document.querySelectorAll('nav, .sidebar, .main > header, .back-link').forEach(el => {
 					el.style.opacity = String(fadeOut);
 				});
-				// Also fade header inside main
-				const header = document.querySelector('.main > header');
-				if (header) header.style.opacity = String(fadeOut);
+				// Fade out preview border
+				const preview = document.querySelector('.preview');
+				if (preview) {
+					preview.style.borderColor = `rgba(200, 149, 108, ${0.12 * (1 - p)})`;
+					preview.style.borderRadius = (8 * (1 - p)) + 'px';
+				}
 			}, zoomProgress);
 
-			await new Promise(r => setTimeout(r, dt));
 			await page.evaluate(() => new Promise(r => setTimeout(r, 0)));
 
 			const screenshot = await page.screenshot({ type: 'png', fullPage: false, omitBackground: false });
@@ -951,8 +949,10 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 					}, defaultScheme.filter);
 				}
 
-				const warmupFrames = options.warmup;
-				for (let i = 0; i < warmupFrames; i++) {
+				// Warm up to match the iframe's frame count for seamless transition
+				const transitionWarmup = Math.max(options.warmup, iframeFrameCount);
+				process.stdout.write(` (syncing ${transitionWarmup} frames)...`);
+				for (let i = 0; i < transitionWarmup; i++) {
 					await page.evaluate((d) => {
 						if (window.__captureAdvanceFrame) window.__captureAdvanceFrame(d);
 					}, dt);
