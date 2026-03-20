@@ -1096,105 +1096,92 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 			}
 		}
 
-		// Color scheme scene: animated 6-panel split screen
+		// Color scheme scene: 6-panel split screen (static capture)
 		if (scene.name === 'colors') {
 			const frameInScene = frame - scene.startFrame;
-			const updateInterval = Math.round(fps * 0.5); // re-capture every 0.5s
 
-			// Capture 6 panels and build/update the grid
-			if (frameInScene % updateInterval === 0) {
-				// Advance iframe a frame first so panels show progression
-				await page.evaluate((dt) => {
-					const iframe = document.querySelector('iframe');
-					if (iframe && iframe.contentWindow && iframe.contentWindow.__captureAdvanceFrame) {
-						iframe.contentWindow.__captureAdvanceFrame(dt);
-					}
-				}, dt);
-
-				// Hide grid before capturing to avoid gridception
-				await page.evaluate(() => {
-					const grid = document.getElementById('__color-grid');
-					if (grid) grid.style.display = 'none';
-				});
-
-				const panelImages = [];
+			// On first frame, capture 6 panels and build the grid
+			if (frameInScene === 0) {
+				// Capture each scheme one at a time, injecting into grid as we go
+				const schemeData = [];
 				for (const scheme of COLOR_SCHEMES) {
 					await page.evaluate((f) => {
 						const iframe = document.querySelector('iframe');
 						if (iframe) iframe.style.filter = f;
 					}, scheme.filter);
-					await page.evaluate(() => new Promise(r => setTimeout(r, 30)));
-					const shot = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: false, encoding: 'base64' });
-					panelImages.push({ base64: shot, name: scheme.name });
+					await page.evaluate(() => new Promise(r => setTimeout(r, 50)));
+					// Use CDP to capture screenshot as base64 without going through evaluate
+					const { data } = await page._client().send('Page.captureScreenshot', { format: 'jpeg', quality: 75 });
+					schemeData.push({ base64: data, name: scheme.name });
 				}
-				// Reset filter and show grid again
+				// Reset filter
 				await page.evaluate((f) => {
 					const iframe = document.querySelector('iframe');
 					if (iframe) iframe.style.filter = f;
-					const grid = document.getElementById('__color-grid');
-					if (grid) grid.style.display = '';
 				}, defaultScheme.filter);
 
-				// Build or update grid
-				await page.evaluate((panels) => {
+				// Inject panels one at a time (small evaluate payloads)
+				await page.evaluate(() => {
 					const container = document.getElementById('__video-overlays') || document.body;
-					let grid = document.getElementById('__color-grid');
-					if (!grid) {
-						grid = document.createElement('div');
-						grid.id = '__color-grid';
-						Object.assign(grid.style, {
-							position: 'fixed',
-							inset: '0',
-							display: 'grid',
-							gridTemplateColumns: 'repeat(3, 1fr)',
-							gridTemplateRows: 'repeat(2, 1fr)',
-							gap: '3px',
-							background: '#0a0a0a',
-							zIndex: '100000',
-							opacity: '0',
-							transition: 'none'
-						});
-						for (const p of panels) {
-							const cell = document.createElement('div');
-							cell.className = '__color-cell';
-							Object.assign(cell.style, {
-								position: 'relative',
-								overflow: 'hidden',
-								backgroundSize: 'cover',
-								backgroundPosition: 'center'
-							});
-							const label = document.createElement('div');
-							Object.assign(label.style, {
-								position: 'absolute',
-								bottom: '8px',
-								left: '50%',
-								transform: 'translateX(-50%)',
-								fontFamily: '"Inter", -apple-system, system-ui, sans-serif',
-								fontSize: '11px',
-								fontWeight: '500',
-								letterSpacing: '0.08em',
-								textTransform: 'uppercase',
-								color: 'rgba(232, 224, 216, 0.8)',
-								background: 'rgba(10, 10, 10, 0.6)',
-								padding: '3px 10px',
-								borderRadius: '4px',
-								whiteSpace: 'nowrap'
-							});
-							label.textContent = p.name;
-							cell.appendChild(label);
-							grid.appendChild(cell);
-						}
-						container.appendChild(grid);
-					}
-					// Update panel images
-					const cells = grid.querySelectorAll('.__color-cell');
-					panels.forEach((p, i) => {
-						if (cells[i]) cells[i].style.backgroundImage = 'url(data:image/jpeg;base64,' + p.base64 + ')';
+					const grid = document.createElement('div');
+					grid.id = '__color-grid';
+					Object.assign(grid.style, {
+						position: 'fixed',
+						inset: '0',
+						display: 'grid',
+						gridTemplateColumns: 'repeat(3, 1fr)',
+						gridTemplateRows: 'repeat(2, 1fr)',
+						gap: '3px',
+						background: '#0a0a0a',
+						zIndex: '100000',
+						opacity: '0',
+						transition: 'none'
 					});
-				}, panelImages);
+					for (let i = 0; i < 6; i++) {
+						const cell = document.createElement('div');
+						cell.id = '__color-cell-' + i;
+						Object.assign(cell.style, {
+							position: 'relative',
+							overflow: 'hidden',
+							backgroundSize: 'cover',
+							backgroundPosition: 'center'
+						});
+						const label = document.createElement('div');
+						Object.assign(label.style, {
+							position: 'absolute',
+							bottom: '8px',
+							left: '50%',
+							transform: 'translateX(-50%)',
+							fontFamily: '"Inter", -apple-system, system-ui, sans-serif',
+							fontSize: '11px',
+							fontWeight: '500',
+							letterSpacing: '0.08em',
+							textTransform: 'uppercase',
+							color: 'rgba(232, 224, 216, 0.8)',
+							background: 'rgba(10, 10, 10, 0.6)',
+							padding: '3px 10px',
+							borderRadius: '4px',
+							whiteSpace: 'nowrap'
+						});
+						cell.appendChild(label);
+						grid.appendChild(cell);
+					}
+					container.appendChild(grid);
+				});
+
+				// Set each panel's image and label individually (avoids large payload)
+				for (let i = 0; i < schemeData.length; i++) {
+					await page.evaluate(({ idx, base64, name }) => {
+						const cell = document.getElementById('__color-cell-' + idx);
+						if (cell) {
+							cell.style.backgroundImage = 'url(data:image/jpeg;base64,' + base64 + ')';
+							cell.querySelector('div').textContent = name;
+						}
+					}, { idx: i, base64: schemeData[i].base64, name: schemeData[i].name });
+				}
 			}
 
-			// Fade in only (no fade out — grid stays until outro navigates away)
+			// Fade in only (grid stays until outro navigates away)
 			const fadeFrames = Math.round(0.5 * fps);
 			const gridOpacity = Math.min(1, frameInScene / fadeFrames);
 			await page.evaluate((o) => {
