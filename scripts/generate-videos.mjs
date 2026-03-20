@@ -278,6 +278,65 @@ async function hideCaption(page) {
 }
 
 /**
+ * Show/update a visual slider overlay during parameter changes.
+ * Shows label, value, and an animated slider track.
+ */
+async function setSliderOverlay(page, label, value, min, max, opacity) {
+	await page.evaluate(({ label, value, min, max, opacity }) => {
+		let el = document.getElementById('__video-slider');
+		if (!el) {
+			el = document.createElement('div');
+			el.id = '__video-slider';
+			Object.assign(el.style, {
+				position: 'fixed',
+				bottom: '6%',
+				left: '50%',
+				transform: 'translateX(-50%)',
+				fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace',
+				padding: '14px 32px',
+				borderRadius: '10px',
+				backdropFilter: 'blur(12px)',
+				WebkitBackdropFilter: 'blur(12px)',
+				background: 'rgba(10, 10, 10, 0.6)',
+				border: '1px solid rgba(200, 149, 108, 0.2)',
+				zIndex: '99999',
+				pointerEvents: 'none',
+				whiteSpace: 'nowrap',
+				transition: 'none',
+				minWidth: '280px'
+			});
+			el.innerHTML = `
+				<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+					<span id="__slider-label" style="font-size:13px;letter-spacing:0.1em;color:rgba(200,149,108,0.8);text-transform:uppercase"></span>
+					<span id="__slider-value" style="font-size:13px;color:rgba(232,224,216,0.6);font-variant-numeric:tabular-nums"></span>
+				</div>
+				<div style="position:relative;height:4px;background:rgba(200,149,108,0.15);border-radius:2px;overflow:hidden">
+					<div id="__slider-fill" style="position:absolute;left:0;top:0;height:100%;background:rgba(200,149,108,0.7);border-radius:2px;transition:none"></div>
+				</div>
+				<div id="__slider-thumb" style="position:absolute;bottom:14px;width:12px;height:12px;border-radius:50%;background:rgba(200,149,108,0.9);box-shadow:0 0 8px rgba(200,149,108,0.4);transform:translateX(-50%);transition:none"></div>
+			`;
+			document.body.appendChild(el);
+		}
+		el.style.opacity = String(opacity);
+		document.getElementById('__slider-label').textContent = label;
+		document.getElementById('__slider-value').textContent = value.toFixed(2);
+		var pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
+		document.getElementById('__slider-fill').style.width = (pct * 100) + '%';
+		// Position thumb — account for padding (32px each side)
+		var trackWidth = el.offsetWidth - 64;
+		var thumbEl = document.getElementById('__slider-thumb');
+		thumbEl.style.left = (32 + pct * trackWidth) + 'px';
+	}, { label, value, min, max, opacity });
+}
+
+async function hideSliderOverlay(page) {
+	await page.evaluate(() => {
+		const el = document.getElementById('__video-slider');
+		if (el) el.style.opacity = '0';
+	});
+}
+
+/**
  * Compute caption opacity for a given frame within a scene.
  * Fades in over fadeFrames, holds, fades out over fadeFrames.
  */
@@ -634,32 +693,28 @@ async function recordShader(page, baseUrl, shader, options) {
 		// ── Outro: navigate to dedicated outro page ──
 		if (scene.name === 'outro' && !outroLoaded) {
 			outroLoaded = true;
+			// Hide caption before navigating
+			await hideCaption(page);
 			const outroUrl = `${baseUrl}/video-outro.html?name=${encodeURIComponent(shader.title)}&url=${encodeURIComponent('radiant-shaders.com/shader/' + shader.id)}`;
 			await page.goto(outroUrl, { waitUntil: 'domcontentloaded' });
-			await new Promise(r => setTimeout(r, 300));
+			await new Promise(r => setTimeout(r, 500));
+			// Warmup the outro animation (advance a few frames to trigger first draw)
+			for (let w = 0; w < 5; w++) {
+				await page.evaluate((dt) => {
+					if (window.__captureAdvanceFrame) window.__captureAdvanceFrame(dt);
+				}, dt);
+			}
 		}
 
-		// Mouse movement (skip for outro — it has its own animation)
-		if (scene.name !== 'outro') {
+		// Mouse movement — only during interaction and parameters scenes
+		if (scene.name === 'interaction' || scene.name === 'parameters') {
 			let mousePos;
-			switch (scene.name) {
-				case 'opening':
-					mousePos = gentleDrift(progress);
-					break;
-				case 'interaction':
-					mousePos = figure8(progress);
-					break;
-				case 'parameters':
-					mousePos = spiralInward(progress);
-					break;
-				case 'colors':
-					mousePos = cornerSweep(progress);
-					break;
-				default:
-					mousePos = gentleDrift(progress);
+			if (scene.name === 'interaction') {
+				mousePos = figure8(progress);
+			} else {
+				mousePos = spiralInward(progress);
 			}
 
-			// Move mouse (convert normalized to viewport pixels)
 			const mx = mousePos.x * viewportWidth;
 			const my = mousePos.y * viewportHeight;
 			await page.mouse.move(mx, my);
@@ -674,9 +729,22 @@ async function recordShader(page, baseUrl, shader, options) {
 					}));
 				}
 			}, { x: mx, y: my });
+		} else if (scene.name !== 'outro') {
+			// Move mouse off-screen for opening, colors scenes
+			if (frame === scene.startFrame) {
+				await page.mouse.move(-10, -10);
+				await page.evaluate(() => {
+					const c = document.getElementById('canvas');
+					if (c) {
+						c.dispatchEvent(new MouseEvent('mouseleave', {
+							bubbles: true, cancelable: true, view: window
+						}));
+					}
+				});
+			}
 		}
 
-		// Parameter changes (scene: parameters)
+		// Parameter changes (scene: parameters) with visual slider
 		if (scene.name === 'parameters' && shader.params && shader.params.length > 0) {
 			const paramValues = computeParamValues(shader.params, progress);
 			for (const pv of paramValues) {
@@ -684,13 +752,26 @@ async function recordShader(page, baseUrl, shader, options) {
 					window.postMessage({ type: 'param', name, value }, '*');
 				}, { name: pv.name, value: pv.value });
 			}
+			// Show slider overlay for the active parameter
+			if (enableCaptions) {
+				const active = paramValues.find(pv => pv.isActive);
+				if (active) {
+					const param = shader.params.find(p => p.name === active.name);
+					const fadeFrames = Math.round(0.5 * fps);
+					const opacity = captionOpacity(frame - scene.startFrame, scene.durationFrames, fadeFrames);
+					await setSliderOverlay(page, active.label, active.value, param.min, param.max, opacity);
+				}
+			}
 		} else if (scene.name !== 'parameters') {
-			// Reset params to default when not in parameters scene
-			if (frame === scene.startFrame && shader.params) {
-				for (const p of shader.params) {
-					await page.evaluate(({ name, value }) => {
-						window.postMessage({ type: 'param', name, value }, '*');
-					}, { name: p.name, value: p.default });
+			// Reset params to default and hide slider
+			if (frame === scene.startFrame) {
+				await hideSliderOverlay(page);
+				if (shader.params) {
+					for (const p of shader.params) {
+						await page.evaluate(({ name, value }) => {
+							window.postMessage({ type: 'param', name, value }, '*');
+						}, { name: p.name, value: p.default });
+					}
 				}
 			}
 		}
@@ -725,14 +806,9 @@ async function recordShader(page, baseUrl, shader, options) {
 				case 'interaction':
 					captionText = 'Move cursor to interact';
 					break;
-				case 'parameters': {
-					if (shader.params && shader.params.length > 0) {
-						const paramValues = computeParamValues(shader.params, progress);
-						const active = paramValues.find(pv => pv.isActive);
-						captionText = active ? active.label : shader.params[0].label;
-					}
+				case 'parameters':
+					// Slider overlay handles this scene — no caption needed
 					break;
-				}
 				case 'colors': {
 					const { schemeName } = colorSceneFilter(progress);
 					captionText = `6 color themes \u00B7 ${schemeName}`;
