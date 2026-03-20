@@ -928,36 +928,16 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 				lastPercent = percent;
 			}
 
-			// At end of zoom, switch to standalone shader for deterministic capture
+			// At end of zoom, hide the shader label inside the iframe
 			if (frame === scene.startFrame + scene.durationFrames - 1) {
-				process.stdout.write('\n  Switching to fullscreen...');
-				// Re-enable rAF override
-				await page.evaluateOnNewDocument(() => { delete window.__skipRAFOverride; });
-				const shaderUrl = `${baseUrl}/${shader.file}`;
-				await page.goto(shaderUrl, { waitUntil: 'domcontentloaded' });
-				await new Promise(r => setTimeout(r, 500));
-
 				await page.evaluate(() => {
-					const label = document.querySelector('.label');
-					if (label) label.style.display = 'none';
+					const iframe = document.querySelector('iframe');
+					if (iframe) {
+						const doc = iframe.contentDocument || iframe.contentWindow.document;
+						const label = doc.querySelector('.label');
+						if (label) label.style.display = 'none';
+					}
 				});
-
-				if (defaultScheme.filter !== 'none') {
-					await page.evaluate((f) => {
-						const c = document.getElementById('canvas');
-						if (c) c.style.filter = f;
-					}, defaultScheme.filter);
-				}
-
-				// Warm up to match the iframe's frame count for seamless transition
-				const transitionWarmup = Math.max(options.warmup, iframeFrameCount);
-				process.stdout.write(` (syncing ${transitionWarmup} frames)...`);
-				for (let i = 0; i < transitionWarmup; i++) {
-					await page.evaluate((d) => {
-						if (window.__captureAdvanceFrame) window.__captureAdvanceFrame(d);
-					}, dt);
-				}
-				process.stdout.write(' done\n');
 			}
 
 			continue;
@@ -997,9 +977,11 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 			} else if (interactionType === 'click' || interactionType === 'click+hover') {
 				await page.mouse.move(mx, my);
 				await page.evaluate(({ x, y }) => {
-					const c = document.getElementById('canvas');
+					// Dispatch on iframe's canvas
+					const iframe = document.querySelector('iframe');
+					const c = iframe ? (iframe.contentDocument || iframe.contentWindow.document).getElementById('canvas') : document.getElementById('canvas');
 					if (c) c.dispatchEvent(new MouseEvent('mousemove', {
-						clientX: x, clientY: y, bubbles: true, view: window
+						clientX: x, clientY: y, bubbles: true, view: c.ownerDocument.defaultView
 					}));
 				}, { x: mx, y: my });
 				const framesPerClick = Math.round(1.5 * fps);
@@ -1011,9 +993,11 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 			} else {
 				await page.mouse.move(mx, my);
 				await page.evaluate(({ x, y }) => {
-					const c = document.getElementById('canvas');
+					// Dispatch on iframe's canvas
+					const iframe = document.querySelector('iframe');
+					const c = iframe ? (iframe.contentDocument || iframe.contentWindow.document).getElementById('canvas') : document.getElementById('canvas');
 					if (c) c.dispatchEvent(new MouseEvent('mousemove', {
-						clientX: x, clientY: y, bubbles: true, view: window
+						clientX: x, clientY: y, bubbles: true, view: c.ownerDocument.defaultView
 					}));
 				}, { x: mx, y: my });
 			}
@@ -1026,12 +1010,11 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 				await hideCursor(page);
 				await page.mouse.move(-10, -10);
 				await page.evaluate(() => {
-					const c = document.getElementById('canvas');
-					if (c) {
-						c.dispatchEvent(new MouseEvent('mouseleave', {
-							bubbles: true, cancelable: true, view: window
-						}));
-					}
+					const iframe = document.querySelector('iframe');
+					const c = iframe ? (iframe.contentDocument || iframe.contentWindow.document).getElementById('canvas') : document.getElementById('canvas');
+					if (c) c.dispatchEvent(new MouseEvent('mouseleave', {
+						bubbles: true, cancelable: true, view: c.ownerDocument.defaultView
+					}));
 				});
 			}
 		}
@@ -1041,7 +1024,9 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 			const paramValues = computeParamValues(shader.params, progress);
 			for (const pv of paramValues) {
 				await page.evaluate(({ name, value }) => {
-					window.postMessage({ type: 'param', name, value }, '*');
+					const iframe = document.querySelector('iframe');
+					const target = iframe ? iframe.contentWindow : window;
+					target.postMessage({ type: 'param', name, value }, '*');
 				}, { name: pv.name, value: pv.value });
 			}
 			// Show slider overlay for the active parameter
@@ -1072,15 +1057,14 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 		if (scene.name === 'colors') {
 			const { filter } = colorSceneFilter(progress);
 			await page.evaluate((f) => {
-				const c = document.getElementById('canvas');
-				if (c) c.style.filter = f;
+				const iframe = document.querySelector('iframe');
+				if (iframe) iframe.style.filter = f;
 			}, filter);
 		} else if (scene.name !== 'colors') {
-			// Reset to default scheme outside colors scene
 			if (frame === scene.startFrame) {
 				await page.evaluate((f) => {
-					const c = document.getElementById('canvas');
-					if (c) c.style.filter = f;
+					const iframe = document.querySelector('iframe');
+					if (iframe) iframe.style.filter = f;
 				}, defaultScheme.filter);
 			}
 		}
@@ -1123,11 +1107,17 @@ async function recordShader(page, baseUrl, devUrl, shader, options) {
 
 		// Advance the shader by one frame
 		if (outroLoaded) {
-			// Outro runs real-time — just wait for next frame
+			// Outro runs real-time
 			await new Promise(r => setTimeout(r, dt));
 		} else {
+			// Advance the iframe's shader
 			await page.evaluate((dt) => {
-				if (window.__captureAdvanceFrame) window.__captureAdvanceFrame(dt);
+				const iframe = document.querySelector('iframe');
+				if (iframe && iframe.contentWindow && iframe.contentWindow.__captureAdvanceFrame) {
+					iframe.contentWindow.__captureAdvanceFrame(dt);
+				} else if (window.__captureAdvanceFrame) {
+					window.__captureAdvanceFrame(dt);
+				}
 			}, dt);
 		}
 
