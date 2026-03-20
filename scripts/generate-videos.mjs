@@ -884,10 +884,13 @@ async function recordShader(page, baseUrl, shader, options) {
 			}, dt);
 		}
 
-		// Capture the frame as PNG and pipe to ffmpeg
+		// Force a repaint before capture (needed for Canvas 2D shaders)
+		await page.evaluate(() => new Promise(r => setTimeout(r, 0)));
+
+		// Capture the frame as PNG
 		const screenshot = await page.screenshot({
 			type: 'png',
-			clip: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
+			fullPage: false,
 			omitBackground: false
 		});
 
