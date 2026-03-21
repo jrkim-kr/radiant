@@ -135,7 +135,7 @@
 	<div class="content">
 		<h1>Radiant</h1>
 		<p class="tagline">Production-ready shaders & effects for the web. No dependencies. Just drop in.</p>
-		<p class="changelog-link"><a href="/#changelog">v1.0 — Initial release with 50+ shaders and effects</a></p>
+		<p class="changelog-link"><a href="/#changelog">v1.1 — Mouse & touch interactivity, 7 new shaders</a></p>
 		<div class="ctas">
 			<a href="/gallery" class="btn btn-solid">Browse Collection</a>
 			<a href="https://github.com/pbakaus/radiant" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">GitHub</a>
