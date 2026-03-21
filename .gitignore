@@ -15,9 +15,11 @@ Thumbs.db
 # AI
 .gemini/
 .claude/projects/
+.claude/worktrees/
 
 # Temp/reference files
 tmp/
+inspo/
 
 # Env
 .env
