@@ -794,19 +794,6 @@ export const shaders: Shader[] = [
 		]
 	},
 	{
-		id: 'desert-mirage',
-		file: 'desert-mirage.html',
-		title: 'Desert Mirage',
-		desc: 'Layered parallax sand dunes with heat shimmer and wind-blown particles.',
-		inspiration: 'Pedro Pascal',
-		tags: ['fill', 'noise'],
-		technique: 'canvas-2d',
-		params: [
-			{ name: 'WIND_SPEED', label: 'Wind Speed', min: 0.1, max: 2.0, step: 0.05, default: 0.5 },
-			{ name: 'SHIMMER_INTENSITY', label: 'Shimmer', min: 0.2, max: 2.0, step: 0.1, default: 1.0 }
-		]
-	},
-	{
 		id: 'neon-drive',
 		file: 'neon-drive.html',
 		title: 'Neon Drive',
